@@ -1,15 +1,24 @@
 #pragma once
 /*
- * DrawLibGLES2.h — Emscripten/WebGL2 rendering back-end.
- *
- * Phase 2: compile-and-link stub.  All methods are implemented in
- * DrawLibGLES2.cpp with no-op or minimal bodies so that the project links
- * cleanly (Checkpoint 2).  The real GLES2 renderer is written in Phase 5.
+ * DrawLibGLES2.h — X-Moto GLES2 / WebGL2 rendering backend (Phase 5).
  */
 
+#ifdef __EMSCRIPTEN__
+
 #include "DrawLib.h"
+#include <GLES2/gl2.h>
+#include <vector>
+#include <cstdint>
+
+struct Vertex2D {
+  float   x, y;
+  float   u, v;
+  uint8_t r, g, b, a;
+};
 
 class DrawLibGLES2 : public DrawLib {
+  friend class GLES2FontManager;
+
 public:
   DrawLibGLES2();
   virtual ~DrawLibGLES2();
@@ -21,7 +30,7 @@ public:
 
   virtual void glVertexSP(float x, float y) override;
   virtual void glVertex(float x, float y) override;
-  virtual void glTexCoord(float x, float y) override;
+  virtual void glTexCoord(float u, float v) override;
   virtual void setColor(Color color) override;
   virtual void setTexture(Texture *texture, BlendMode blendMode) override;
   virtual void setBlendMode(BlendMode blendMode) override;
@@ -43,6 +52,7 @@ public:
   virtual void removePropertiesAfterEnd() override;
 
   virtual void clearGraphics() override;
+  virtual void resetGraphics() override;
   virtual void flushGraphics() override;
 
   virtual FontManager *getFontManager(const std::string &i_fontFile,
@@ -55,4 +65,28 @@ public:
 
 private:
   SDL_GLContext m_glContext;
+
+  /* shader */
+  GLuint m_prog;
+  GLint  m_loc_mvp, m_loc_use_tex, m_loc_tex;
+  GLint  m_loc_pos, m_loc_uv, m_loc_color;
+
+  /* vertex batch */
+  GLuint                m_vbo;
+  std::vector<Vertex2D> m_batch;
+  DrawMode              m_drawMode;
+
+  /* matrices (column-major 4x4) */
+  float m_proj[16];
+  float m_model[16];
+  float m_mvp[16];
+  void  _recompute_mvp();
+
+  /* current draw state */
+  uint8_t m_cur_r, m_cur_g, m_cur_b, m_cur_a;
+  float   m_cur_u, m_cur_v;
+
+  void _flush_batch();
 };
+
+#endif /* __EMSCRIPTEN__ */

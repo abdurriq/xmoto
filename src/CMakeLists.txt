@@ -886,6 +886,8 @@ if(EMSCRIPTEN_BUILD)
     "SHELL:-s INITIAL_MEMORY=134217728"
     "SHELL:-s ASYNCIFY=1"
     "SHELL:-s EXPORTED_RUNTIME_METHODS=[\"callMain\",\"FS\",\"PATH\"]"
+    "--shell-file"
+    "${CMAKE_SOURCE_DIR}/extra/web/shell.html"
     "--preload-file"
     "${CMAKE_SOURCE_DIR}/bin@/"
     "-lidbfs.js"

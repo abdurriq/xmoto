@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>X-Moto Web</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #111;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: sans-serif;
+      color: #eee;
+    }
+    #canvas-wrap {
+      position: relative;
+    }
+    #canvas {
+      display: block;
+      border: 2px solid #333;
+    }
+    #overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.75);
+      cursor: pointer;
+      gap: 1rem;
+    }
+    #overlay h1  { font-size: 2.5rem; }
+    #overlay p   { font-size: 1rem; color: #aaa; }
+    #overlay.hidden { display: none; }
+    #status {
+      margin-top: 0.5rem;
+      font-size: 0.85rem;
+      color: #888;
+      min-height: 1.2em;
+    }
+    #progress-wrap {
+      width: 400px; max-width: 90vw;
+      height: 6px;
+      background: #333;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    #progress-bar {
+      height: 100%;
+      width: 0%;
+      background: #5af;
+      transition: width 0.2s;
+    }
+  </style>
+</head>
+<body>
+  <div id="canvas-wrap">
+    <canvas id="canvas" oncontextmenu="event.preventDefault()"></canvas>
+    <div id="overlay">
+      <h1>X-Moto</h1>
+      <p>Click to start (audio requires a user gesture)</p>
+    </div>
+  </div>
+  <div id="status"></div>
+  <div id="progress-wrap"><div id="progress-bar"></div></div>
+
+  <script>
+    var overlay  = document.getElementById('overlay');
+    var status   = document.getElementById('status');
+    var bar      = document.getElementById('progress-bar');
+
+    overlay.addEventListener('click', function() {
+      overlay.classList.add('hidden');
+    });
+
+    var Module = {
+      canvas: document.getElementById('canvas'),
+
+      setStatus: function(text) {
+        status.textContent = text;
+        /* parse "Loading… (X/Y)" for a progress bar */
+        var m = text.match(/\((\d+)\/(\d+)\)/);
+        if (m) bar.style.width = (100 * parseInt(m[1]) / parseInt(m[2])) + '%';
+        else if (!text) bar.style.width = '100%';
+      },
+
+      onRuntimeInitialized: function() {
+        overlay.classList.add('hidden');
+        status.textContent = '';
+        bar.style.width = '100%';
+      },
+
+      print:    function(t) { console.log('[xmoto]', t); },
+      printErr: function(t) { console.warn('[xmoto]', t); },
+    };
+
+    window.onerror = function(msg, src, l, c, err) {
+      status.textContent = 'Error: ' + msg;
+      console.error('Fatal:', msg, err);
+    };
+  </script>
+  {{{ SCRIPT }}}
+</body>
+</html>
