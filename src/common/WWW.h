@@ -25,7 +25,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 #include "BuildConfig.h"
 
+#if ENABLE_WWW
 #include <curl/curl.h>
+#endif
 #include <stdio.h>
 #include <string>
 #include <vector>
@@ -64,6 +66,8 @@ class xmDatabase;
 
 #define WWW_AGENT ("xmoto-" + XMBuild::getVersionString(true))
 
+#if ENABLE_WWW
+
 #if CURL_AT_LEAST_VERSION(7, 56, 0)
 #define USE_CURL_MIME_API 1
 #define HTTP_FORM_TYPE CURLOPT_MIMEPOST
@@ -100,6 +104,8 @@ private:
 #endif
 };
 
+#endif /* ENABLE_WWW */
+
 struct f_curl_download_data {
   WWWAppInterface *v_WebApp;
   int v_nb_files_to_download;
@@ -109,6 +115,8 @@ struct f_curl_download_data {
 struct f_curl_upload_data {
   WWWAppInterface *v_WebApp;
 };
+
+#if ENABLE_WWW
 
 using ProgressCallback = int (*)(void *clientp,
                                  curl_off_t dltotal,
@@ -203,7 +211,9 @@ private:
                                   FILE *p_destinationFile,
                                   WWWAppInterface *p_WebApp,
                                   const ProxySettings *p_proxy_settings);
-};
+}; // end of FSWeb
+
+#endif /* ENABLE_WWW */
 
 class WebRoom {
 public:

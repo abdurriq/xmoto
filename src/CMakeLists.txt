@@ -8,6 +8,56 @@ option(PREFER_SYSTEM_XDG "Prefer system XDG" ON)
 option(ALLOW_DEV "Enable some development/debug features" OFF)
 option(BUILD_MACOS_BUNDLE "Build xmoto as a macOS Bundle" OFF)
 
+# Web / Emscripten feature flags
+option(ENABLE_NETWORK   "Enable multiplayer networking (SDL_net)" ON)
+option(ENABLE_WWW       "Enable web highscore/download features (curl)" ON)
+option(ENABLE_THREADING "Enable background worker threads" ON)
+option(ENABLE_SERVER    "Enable standalone server mode" ON)
+
+if(EMSCRIPTEN_BUILD)
+  set(ENABLE_NETWORK   OFF CACHE BOOL "" FORCE)
+  set(ENABLE_WWW       OFF CACHE BOOL "" FORCE)
+  set(ENABLE_THREADING OFF CACHE BOOL "" FORCE)
+  set(ENABLE_SERVER    OFF CACHE BOOL "" FORCE)
+  set(USE_GETTEXT      OFF CACHE BOOL "" FORCE)
+  set(PREFER_SYSTEM_XDG OFF CACHE BOOL "" FORCE)
+  set(USE_OPENGL        ON  CACHE BOOL "" FORCE)
+  set(PREFER_SYSTEM_BZip2 OFF CACHE BOOL "" FORCE)
+  set(PREFER_SYSTEM_Lua   OFF CACHE BOOL "" FORCE)
+  # Emscripten provides SDL2/mixer/ttf, zlib, libpng, libjpeg via -s USE_X=1
+  # linker flags.  Set stub variables so find_package blocks are skipped.
+  set(SDL2_FOUND TRUE)
+  set(SDL2_LIBRARIES "")
+  set(SDL2_INCLUDE_DIRS "")
+  set(SDL2_MIXER_FOUND TRUE)
+  set(SDL2_MIXER_LIBRARY "")
+  set(SDL2_MIXER_INCLUDE_DIR "")
+  set(SDL2_TTF_FOUND TRUE)
+  set(SDL2_TTF_LIBRARY "")
+  set(SDL2_TTF_INCLUDE_DIR "")
+  set(JPEG_FOUND TRUE)
+  set(JPEG_LIBRARIES "")
+  set(JPEG_INCLUDE_DIR "")
+  set(PNG_FOUND TRUE)
+  set(PNG_LIBRARIES "")
+  set(PNG_INCLUDE_DIRS "")
+  set(ZLIB_FOUND TRUE)
+  set(ZLIB_LIBRARIES "")
+  set(ZLIB_INCLUDE_DIRS "")
+  set(OPENGL_FOUND TRUE)
+  set(OPENGL_LIBRARIES "")
+  set(Intl_FOUND TRUE)
+  set(Intl_LIBRARIES "")
+  set(Intl_INCLUDE_DIRS "")
+  set(XDG_FOUND FALSE)
+  # SQLite3: provided by emscripten port (-s USE_SQLITE3=1 adds the header)
+  set(SQLITE3_LIBRARIES "")
+  set(SQLITE3_INCLUDE_DIRS "")
+  # libxml2: vendored and compiled with emcc (added as subdirectory below)
+  set(LIBXML2_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/vendor/libxml2/include")
+  set(LIBXML2_LIBRARIES LibXml2)
+endif()
+
 if(CMAKE_GENERATOR MATCHES "Ninja")
   message("-- Using Ninja, try to colorize")
   check_cxx_compiler_flag(-fdiagnostics-color FLAG_CXX_DIAGNOSTICS_COLOR)
@@ -28,18 +78,26 @@ find_package(PkgConfig)
 find_package(BZip2)
 set(USE_SYSTEM_BZip2 $<AND:$<BOOL:${PREFER_SYSTEM_BZip2}>,$<BOOL:${BZIP2_FOUND}>,$<NOT:$<BOOL:${WIN32}>>>)
 
-find_package(CURL REQUIRED)
+if(ENABLE_WWW)
+  find_package(CURL REQUIRED)
+endif()
 if(USE_GETTEXT)
   find_package(Gettext REQUIRED)
   find_package(Intl REQUIRED)
 endif()
-find_package(JPEG REQUIRED)
+if(NOT EMSCRIPTEN_BUILD)
+  find_package(JPEG REQUIRED)
+endif()
 
 find_package(LibLZMA)
-find_package(LibXml2 REQUIRED)
+if(NOT EMSCRIPTEN_BUILD)
+  find_package(LibXml2 REQUIRED)
+endif()
 
 if(USE_OPENGL)
-  find_package(OpenGL REQUIRED)
+  if(NOT EMSCRIPTEN_BUILD)
+    find_package(OpenGL REQUIRED)
+  endif()
 endif()
 
 if(APPLE)
@@ -50,7 +108,7 @@ if(APPLE)
   pkg_check_modules(LIBPNG libpng16 REQUIRED)
   set(PNG_LIBRARIES "${LIBPNG_LINK_LIBRARIES}")
   set(PNG_INCLUDE_DIRS "${LIBPNG_INCLUDE_DIRS}")
-else()
+elseif(NOT EMSCRIPTEN_BUILD)
   find_package(PNG REQUIRED)
 endif()
 
@@ -64,28 +122,38 @@ endif()
 
 # Can't disable yet
 if(ON OR USE_SDLGFX)
-  # This is a workaround required on some systems that ship a broken sdl2-config.cmake
-  find_library(SDL2_LIBRARIES NAMES SDL2 SDL2main)
-  if(NOT SDL2_LIBRARIES OR DEFINED ENV{NIX_STORE})
-    # NixOS include dirs are not in the usual places compared to other distros.
-    find_package(SDL2 REQUIRED)
+  if(NOT EMSCRIPTEN_BUILD)
+    # This is a workaround required on some systems that ship a broken sdl2-config.cmake
+    find_library(SDL2_LIBRARIES NAMES SDL2 SDL2main)
+    if(NOT SDL2_LIBRARIES OR DEFINED ENV{NIX_STORE})
+      # NixOS include dirs are not in the usual places compared to other distros.
+      find_package(SDL2 REQUIRED)
 
-    if("${SDL2_LIBRARIES}" STREQUAL "")
-      set(SDL2_LIBRARIES SDL2::SDL2)
+      if("${SDL2_LIBRARIES}" STREQUAL "")
+        set(SDL2_LIBRARIES SDL2::SDL2)
+      endif()
     endif()
-  endif()
 
-  find_package(SDL2_mixer REQUIRED)
-  find_package(SDL2_net REQUIRED)
-  find_package(SDL2_ttf REQUIRED)
+    find_package(SDL2_mixer REQUIRED)
+    find_package(SDL2_ttf REQUIRED)
+  endif()
+  if(ENABLE_NETWORK)
+    find_package(SDL2_net REQUIRED)
+  endif()
 endif()
 
-find_package(SQLITE3 REQUIRED)
+if(NOT EMSCRIPTEN_BUILD)
+  find_package(SQLITE3 REQUIRED)
+endif()
 
-find_package(XDG)
+if(NOT EMSCRIPTEN_BUILD)
+  find_package(XDG)
+endif()
 set(USE_SYSTEM_XDG $<AND:$<BOOL:${PREFER_SYSTEM_XDG}>,$<BOOL:${XDG_FOUND}>>)
 
-find_package(ZLIB REQUIRED)
+if(NOT EMSCRIPTEN_BUILD)
+  find_package(ZLIB REQUIRED)
+endif()
 
 if(APPLE)
   find_library(COREFOUNDATION_LIBRARY CoreFoundation)
@@ -105,8 +173,24 @@ add_subdirectory("${PROJECT_SOURCE_DIR}/vendor/chipmunk" chipmunk)
 add_subdirectory("${PROJECT_SOURCE_DIR}/vendor/lua" lua)
 add_subdirectory("${PROJECT_SOURCE_DIR}/vendor/md5sum" md5sum)
 add_subdirectory("${PROJECT_SOURCE_DIR}/vendor/ode" ode)
-add_subdirectory("${PROJECT_SOURCE_DIR}/vendor/xdgbasedir" xdgbasedir)
+if(NOT EMSCRIPTEN_BUILD)
+  add_subdirectory("${PROJECT_SOURCE_DIR}/vendor/xdgbasedir" xdgbasedir)
+endif()
 add_subdirectory("${PROJECT_SOURCE_DIR}/vendor/glad" glad)
+if(EMSCRIPTEN_BUILD)
+  # libxml2 compiled from vendored source with emcc — disable all optional features
+  set(LIBXML2_WITH_ICONV   OFF CACHE BOOL "" FORCE)
+  set(LIBXML2_WITH_ICU     OFF CACHE BOOL "" FORCE)
+  set(LIBXML2_WITH_LZMA    OFF CACHE BOOL "" FORCE)
+  set(LIBXML2_WITH_PYTHON  OFF CACHE BOOL "" FORCE)
+  set(LIBXML2_WITH_PROGRAMS OFF CACHE BOOL "" FORCE)
+  set(LIBXML2_WITH_TESTS   OFF CACHE BOOL "" FORCE)
+  set(LIBXML2_WITH_HTTP    OFF CACHE BOOL "" FORCE)
+  set(LIBXML2_WITH_FTP     OFF CACHE BOOL "" FORCE)
+  set(LIBXML2_WITH_MODULES OFF CACHE BOOL "" FORCE)
+  set(BUILD_SHARED_LIBS    OFF CACHE BOOL "" FORCE)
+  add_subdirectory("${PROJECT_SOURCE_DIR}/vendor/libxml2" libxml2_web)
+endif()
 
 configure_file(common/XMBuildConfig.h.in common/XMBuildConfig.h)
 
@@ -178,9 +262,19 @@ set(drawlib_src
   drawlib/DrawLib.cpp drawlib/DrawLib.h
 )
 if(USE_OPENGL)
-  list(APPEND drawlib_src
-    drawlib/DrawLibOpenGL.cpp drawlib/DrawLibOpenGL.h
-  )
+  if(EMSCRIPTEN_BUILD)
+    # DrawLibOpenGL uses desktop-only GL API (glBegin/glEnd/immediate mode).
+    # For Emscripten, compile a GLES2-compatible implementation instead.
+    # Phase 5 creates DrawLibGLES2 with a full implementation; for now
+    # a stub keeps the linker happy so Checkpoint 2 can be reached.
+    list(APPEND drawlib_src
+      drawlib/DrawLibGLES2.cpp drawlib/DrawLibGLES2.h
+    )
+  else()
+    list(APPEND drawlib_src
+      drawlib/DrawLibOpenGL.cpp drawlib/DrawLibOpenGL.h
+    )
+  endif()
 endif()
 if(USE_SDLGFX)
   list(APPEND drawlib_src
@@ -233,20 +327,25 @@ set(image_src
   image/tim_png.cpp
 )
 
-set(net_src
-  net/ActionReader.cpp net/ActionReader.h
-  net/BasicStructures.h
-  net/NetActions.cpp net/NetActions.h
-  net/NetClient.cpp net/NetClient.h
-  net/NetServer.cpp net/NetServer.h
-  net/ServerRules.cpp net/ServerRules.h
-  net/VirtualNetLevelsList.cpp net/VirtualNetLevelsList.h
-  net/extSDL_net.cpp net/extSDL_net.h
+if(ENABLE_NETWORK)
+  set(net_src
+    net/ActionReader.cpp net/ActionReader.h
+    net/BasicStructures.h
+    net/NetActions.cpp net/NetActions.h
+    net/NetClient.cpp net/NetClient.h
+    net/NetServer.cpp net/NetServer.h
+    net/ServerRules.cpp net/ServerRules.h
+    net/VirtualNetLevelsList.cpp net/VirtualNetLevelsList.h
+    net/extSDL_net.cpp net/extSDL_net.h
 
-  net/helpers/Net.cpp net/helpers/Net.h
+    net/helpers/Net.cpp net/helpers/Net.h
 
-  net/thread/ServerThread.cpp net/thread/ServerThread.h
-)
+    net/thread/ServerThread.cpp net/thread/ServerThread.h
+  )
+else()
+  # Network disabled (Emscripten MVP): minimal stubs that satisfy the linker.
+  set(net_src net/net_web_stubs.cpp)
+endif()
 
 set(states_src
   states/AttractMode.cpp states/AttractMode.h
@@ -486,11 +585,14 @@ target_include_directories(xmoto
 
   "${SDL2_INCLUDE_DIRS}"
   "${SDL2_MIXER_INCLUDE_DIR}"
-  "${SDL2_NET_INCLUDE_DIR}"
   "${SDL2_TTF_INCLUDE_DIR}"
 
   "$<${USE_SYSTEM_Lua}:${LUA_INCLUDE_DIR}>"
 )
+
+if(ENABLE_NETWORK)
+  target_include_directories(xmoto SYSTEM PRIVATE "${SDL2_NET_INCLUDE_DIR}")
+endif()
 
 target_link_libraries(xmoto PUBLIC
   $<$<PLATFORM_ID:Windows>:userenv>
@@ -498,7 +600,7 @@ target_link_libraries(xmoto PUBLIC
   "$<${USE_SYSTEM_BZip2}:${BZIP2_LIBRARIES}>"
   "$<$<NOT:${USE_SYSTEM_BZip2}>:bzip2>"
   chipmunk
-  ${CURL_LIBRARIES}
+  $<$<BOOL:${ENABLE_WWW}>:${CURL_LIBRARIES}>
     $<$<BOOL:${STATIC_BUILD}>:gnutls>
       #$<$<BOOL:${STATIC_BUILD}>:idn>
       #$<$<BOOL:${STATIC_BUILD}>:unistring>
@@ -522,18 +624,20 @@ target_link_libraries(xmoto PUBLIC
   ${PNG_LIBRARIES}
   ${SDL2_LIBRARIES}
   ${SDL2_MIXER_LIBRARY}
-  ${SDL2_NET_LIBRARY}
+  $<$<BOOL:${ENABLE_NETWORK}>:${SDL2_NET_LIBRARY}>
   ${SDL2_TTF_LIBRARY}
   ${SQLITE3_LIBRARIES}
   $<${USE_SYSTEM_XDG}:${XDG_LIBRARY}>
-  $<$<NOT:${USE_SYSTEM_XDG}>:xdgbasedir>
+  $<$<AND:$<NOT:${USE_SYSTEM_XDG}>,$<NOT:$<BOOL:${EMSCRIPTEN_BUILD}>>>:xdgbasedir>
   ${ZLIB_LIBRARIES}
   $<$<PLATFORM_ID:Darwin>:${COREFOUNDATION_LIBRARY}>
 )
 
 set_property(TARGET xmoto PROPERTY CXX_STANDARD 11)
-# strip release builds
-set_target_properties(xmoto PROPERTIES LINK_FLAGS_RELEASE -s)
+# strip release builds (not applicable to emscripten)
+if(NOT EMSCRIPTEN_BUILD)
+  set_target_properties(xmoto PROPERTIES LINK_FLAGS_RELEASE -s)
+endif()
 
 check_symbol_exists(putenv stdlib.h HAVE_PUTENV)
 check_symbol_exists(setenv stdlib.h HAVE_SETENV)
@@ -555,8 +659,17 @@ target_compile_definitions(xmoto PUBLIC USE_SDLGFX=$<BOOL:${USE_SDLGFX}>)
 target_compile_definitions(xmoto PUBLIC USE_GETTEXT=$<BOOL:${USE_GETTEXT}>)
 target_compile_definitions(xmoto PUBLIC ALLOW_DEV=$<BOOL:${ALLOW_DEV}>)
 target_compile_definitions(xmoto PUBLIC BUILD_MACOS_BUNDLE=$<BOOL:${BUILD_MACOS_BUNDLE}>)
+target_compile_definitions(xmoto PUBLIC ENABLE_NETWORK=$<BOOL:${ENABLE_NETWORK}>)
+target_compile_definitions(xmoto PUBLIC ENABLE_WWW=$<BOOL:${ENABLE_WWW}>)
+target_compile_definitions(xmoto PUBLIC ENABLE_THREADING=$<BOOL:${ENABLE_THREADING}>)
+target_compile_definitions(xmoto PUBLIC ENABLE_SERVER=$<BOOL:${ENABLE_SERVER}>)
 
-test_big_endian(XMOTO_BIG_ENDIAN)
+# WASM/Emscripten is always little-endian; TestBigEndian fails on the emscripten toolchain.
+if(EMSCRIPTEN_BUILD)
+  set(XMOTO_BIG_ENDIAN 0)
+else()
+  test_big_endian(XMOTO_BIG_ENDIAN)
+endif()
 target_compile_definitions(xmoto PUBLIC XMOTO_BIG_ENDIAN=${XMOTO_BIG_ENDIAN})
 
 target_compile_definitions(xmoto PUBLIC $<$<BOOL:${STATIC_BUILD}>:CURL_STATICLIB>)
@@ -729,4 +842,48 @@ message("Installation path: ${CMAKE_INSTALL_PREFIX}")
 message("Flags:")
 if(${ALLOW_DEV})
   message("-- Dev enabled")
+endif()
+
+# ---------------------------------------------------------------------------
+# Emscripten / WASM build
+# ---------------------------------------------------------------------------
+if(EMSCRIPTEN_BUILD)
+  set_target_properties(xmoto PROPERTIES SUFFIX ".html")
+
+  # Emscripten ports: these -s flags make emcc download/compile the port and
+  # add include paths automatically — no separate find_package needed.
+  set(EM_PORT_FLAGS
+    "SHELL:-s USE_SDL=2"
+    "SHELL:-s USE_SDL_MIXER=2"
+    "SHELL:-s USE_SDL_TTF=2"
+    "SHELL:-s USE_ZLIB=1"
+    "SHELL:-s USE_LIBPNG=1"
+    "SHELL:-s USE_LIBJPEG=1"
+    "SHELL:-s USE_SQLITE3=1"
+  )
+  target_compile_options(xmoto PRIVATE ${EM_PORT_FLAGS})
+
+  target_include_directories(xmoto PRIVATE
+    "${CMAKE_SOURCE_DIR}/vendor/libxml2/include"
+  )
+  target_link_libraries(xmoto PUBLIC LibXml2)
+
+  target_link_options(xmoto PRIVATE
+    "SHELL:-s USE_SDL=2"
+    "SHELL:-s USE_SDL_MIXER=2"
+    "SHELL:-s USE_SDL_TTF=2"
+    "SHELL:-s USE_ZLIB=1"
+    "SHELL:-s USE_LIBPNG=1"
+    "SHELL:-s USE_LIBJPEG=1"
+    "SHELL:-s USE_SQLITE3=1"
+    "SHELL:-s MIN_WEBGL_VERSION=2"
+    "SHELL:-s MAX_WEBGL_VERSION=2"
+    "SHELL:-s ALLOW_MEMORY_GROWTH=1"
+    "SHELL:-s INITIAL_MEMORY=134217728"
+    "SHELL:-s ASYNCIFY=1"
+    "SHELL:-s EXPORTED_RUNTIME_METHODS=[\"callMain\",\"FS\",\"PATH\"]"
+    "--preload-file"
+    "${CMAKE_SOURCE_DIR}/bin@/"
+    "-lidbfs.js"
+  )
 endif()

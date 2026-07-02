@@ -52,3 +52,12 @@ CTestTestfile.cmake
 ## Nix
 
 /result*
+
+## Web / Emscripten build
+
+# libxml2 is downloaded at setup time by dev-scripts/env-web.sh
+# (run: curl -sL https://download.gnome.org/sources/libxml2/2.9/libxml2-2.9.14.tar.xz | tar -xJ -C vendor/libxml2 --strip-components=1)
+vendor/libxml2/
+
+# Emscripten build artefacts
+build-web/

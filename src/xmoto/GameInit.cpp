@@ -49,7 +49,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "gui/specific/GUIXMoto.h"
 #include "helpers/SwapEndian.h"
 #include "helpers/Text.h"
-#include <curl/curl.h>
+#if ENABLE_WWW
+#  include <curl/curl.h>
+#endif
 
 #include "states/StateEditProfile.h"
 #include "states/StateMainMenu.h"

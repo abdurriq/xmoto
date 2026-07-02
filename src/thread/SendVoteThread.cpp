@@ -128,6 +128,7 @@ int SendVoteThread::realThreadFunction() {
   setThreadProgress(0);
 
   try {
+#if ENABLE_WWW
     FSWeb::sendVote(m_idlevel,
                     m_difficulty_value,
                     m_quality_value,
@@ -143,6 +144,9 @@ int SendVoteThread::realThreadFunction() {
       return 1;
     }
     m_pDb->markAsVoted(XMSession::instance()->profile(), m_idlevel);
+#else
+    return 1; /* web features disabled */
+#endif
   } catch (Exception &e) {
     m_msg = GAMETEXT_UPLOAD_ERROR + std::string("\n") + e.getMsg();
     LogWarning("%s", e.getMsg().c_str());

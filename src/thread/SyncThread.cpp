@@ -72,6 +72,7 @@ int SyncThread::realThreadFunction() {
 
   // upload it
   try {
+#if ENABLE_WWW
     FSWeb::uploadDbSync(SYNC_UP_TMPFILEBZ2,
                         XMSession::instance()->profile(),
                         XMSession::instance()->wwwPassword(),
@@ -90,6 +91,9 @@ int SyncThread::realThreadFunction() {
       }
       return 1;
     }
+#else
+    return 1; /* web features disabled */
+#endif
   } catch (Exception &e) {
     m_msg = GAMETEXT_UPLOAD_ERROR + std::string("\n") + e.getMsg();
     LogWarning("%s", e.getMsg().c_str());

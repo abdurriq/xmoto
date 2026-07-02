@@ -83,14 +83,25 @@ private:
 
   /* For shaders */
   bool m_bUseShaders;
+#ifdef __EMSCRIPTEN__
+  /* In GLES2/WebGL2, shader handles are plain GLuint (ARB extension types absent) */
+  GLuint m_VertShaderID;
+  GLuint m_FragShaderID;
+  GLuint m_ProgramID;
+#else
   GLhandleARB m_VertShaderID;
   GLhandleARB m_FragShaderID;
   GLhandleARB m_ProgramID;
+#endif
 
   /* Helpers */
   char **_LoadShaderSource(const std::string &File, unsigned int *pnNumLines);
   void _FreeShaderSource(char **ppc, unsigned int nNumLines);
+#ifdef __EMSCRIPTEN__
+  bool _SetShaderSource(GLuint ShaderID, const std::string &File);
+#else
   bool _SetShaderSource(GLhandleARB ShaderID, const std::string &File);
+#endif
 #endif
 
   int m_nOverlayWidth, m_nOverlayHeight;

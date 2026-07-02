@@ -38,7 +38,11 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #endif
 
 #ifdef ENABLE_OPENGL
-#include "DrawLibOpenGL.h"
+#  ifdef __EMSCRIPTEN__
+#    include "DrawLibGLES2.h"
+#  else
+#    include "DrawLibOpenGL.h"
+#  endif
 #endif
 
 #ifdef ENABLE_SDLGFX
@@ -53,7 +57,11 @@ DrawLib *DrawLib::DrawLibFromName(std::string i_drawLibName) {
 #ifdef ENABLE_OPENGL
   if (i_drawLibName == "OPENGL") {
     m_backend = backend_OpenGl;
+#ifdef __EMSCRIPTEN__
+    return new DrawLibGLES2();
+#else
     return new DrawLibOpenGL();
+#endif
   }
 #endif
 #ifdef ENABLE_SDLGFX
@@ -66,7 +74,11 @@ DrawLib *DrawLib::DrawLibFromName(std::string i_drawLibName) {
 /* if no name is given, try to force one renderer */
 #ifdef ENABLE_OPENGL
   m_backend = backend_OpenGl;
+#ifdef __EMSCRIPTEN__
+  return new DrawLibGLES2();
+#else
   return new DrawLibOpenGL();
+#endif
 #endif
 #ifdef ENABLE_SDLGFX
   m_backend = backend_SdlGFX;

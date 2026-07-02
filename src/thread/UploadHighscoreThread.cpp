@@ -69,6 +69,7 @@ int UploadHighscoreThread::realThreadFunction() {
         setThreadCurrentOperation(GAMETEXT_UPLOADING_HIGHSCORE +
                                   std::string(" (") + webRoomName + ")");
 
+#if ENABLE_WWW
         FSWeb::uploadReplay(m_highscorePath,
                             XMSession::instance()->idRoom(i),
                             XMSession::instance()->profile(),
@@ -86,6 +87,9 @@ int UploadHighscoreThread::realThreadFunction() {
                   "\n" + v_tmpMsg + "\n \n";
           v_failed = true;
         }
+#else
+        m_msg += webRoomName + ": upload disabled\n";
+#endif
       }
     } catch (Exception &e) {
       m_msg = m_msg + webRoomName + ":\n" + GAMETEXT_UPLOAD_ERROR +

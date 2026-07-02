@@ -118,7 +118,7 @@ std::string getPWDDir(bool i_asUtf8 = false) {
 #endif
 }
 
-#if !defined(WIN32) && !defined(__MORPHOS__) && !defined(__amigaos4__)
+#if !defined(WIN32) && !defined(__MORPHOS__) && !defined(__amigaos4__) && !defined(__EMSCRIPTEN__)
 void strlwr(char *pc) {
   for (unsigned int i = 0; i < strlen(pc); i++)
     pc[i] = tolower(pc[i]);
@@ -128,7 +128,9 @@ void strlwr(char *pc) {
 bool XMFS::m_isInitialized = false;
 
 #ifndef WIN32
+#  ifndef __EMSCRIPTEN__
 xdgHandle *XMFS::m_xdgHd = NULL;
+#  endif
 #endif
 
 bool str_match_wildcard(char *pcMWildcard,
@@ -1210,6 +1212,7 @@ void XMFS::init(const std::string &AppDir,
   }
 
 #ifndef WIN32
+#  ifndef __EMSCRIPTEN__
   // xdg
   if ((m_xdgHd = (xdgHandle *)malloc(sizeof(xdgHandle))) == NULL) {
     throw Exception("xdgbasedir allocation failed");
@@ -1217,9 +1220,28 @@ void XMFS::init(const std::string &AppDir,
   if ((xdgInitHandle(m_xdgHd)) == 0) {
     throw Exception("xdgbasedir initialisation failed");
   }
+#  endif
 #endif
 
-#if defined(WIN32) /* Windoze... */
+#ifdef __EMSCRIPTEN__
+  // Emscripten: game data is preloaded into the virtual FS under /.
+  // User data lives in /xmoto-user, which is backed by IDBFS (mounted before
+  // this function is called from GameApp::run_load).
+  if (v_mod_userCustomDirPath != "") {
+    m_UserDataDir      = v_mod_userCustomDirPath;
+    m_UserDataDirUTF8  = v_mod_userCustomDirPathUtf8;
+    m_UserConfigDir    = v_mod_userCustomDirPath;
+    m_UserCacheDir     = v_mod_userCustomDirPath;
+  } else {
+    m_UserDataDir      = "/xmoto-user/data";
+    m_UserConfigDir    = "/xmoto-user/config";
+    m_UserCacheDir     = "/xmoto-user/cache";
+    m_UserDataDirUTF8  = m_UserDataDir;
+  }
+  m_SystemDataDir     = "/";
+  m_bGotSystemDataDir  = true;
+  m_SystemLocaleDir    = "";
+#elif defined(WIN32) /* Windoze... */
   char cModulePath[256];
 
   int i = GetModuleFileName(
@@ -1398,7 +1420,7 @@ void XMFS::init(const std::string &AppDir,
   m_SystemLocaleDir = m_SystemDataDir + "/locale";
   m_SystemDataDir = m_SystemDataDir + "/xmoto";
 #endif
-#endif /* Assume unix-like */
+#endif /* Assume unix-like / not emscripten */
 
   bool v_requireMigration = false;
 
@@ -1531,10 +1553,12 @@ void XMFS::init(const std::string &AppDir,
 
 void XMFS::uninit() {
 #ifndef WIN32
+#  ifndef __EMSCRIPTEN__
   if (m_xdgHd != NULL) {
     xdgWipeHandle(m_xdgHd);
     free(m_xdgHd);
   }
+#  endif
 #endif
   m_isInitialized = false;
 }

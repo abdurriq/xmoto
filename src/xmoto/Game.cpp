@@ -58,7 +58,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "states/StatePreplayingReplay.h"
 #include "states/StateWaitServerInstructions.h"
 #include "thread/XMThreadStats.h"
-#include <curl/curl.h>
+#if ENABLE_WWW
+#  include <curl/curl.h>
+#endif
 #include <iomanip>
 #include <sstream>
 

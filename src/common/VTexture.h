@@ -37,7 +37,11 @@ class Sprite;
 enum FilterMode { FM_NEAREST, FM_LINEAR, FM_MIPMAP };
 
 enum class WrapMode {
+#ifdef __EMSCRIPTEN__
+  Clamp = GL_CLAMP_TO_EDGE, /* GL_CLAMP absent in GLES2/WebGL2 */
+#else
   Clamp = GL_CLAMP,
+#endif
   ClampToEdge = GL_CLAMP_TO_EDGE,
   Repeat = GL_REPEAT,
 };

@@ -126,10 +126,11 @@ Texture *TextureManager::createTexture(const std::string &Name,
   GLenum wrapParam;
   switch (wrapMode) {
     case WrapMode::Clamp:
+#ifndef __EMSCRIPTEN__
       wrapParam = GL_CLAMP;
       break;
-
     case WrapMode::ClampToEdge:
+#endif
       wrapParam = GL_CLAMP_TO_EDGE;
       break;
 
@@ -160,7 +161,8 @@ Texture *TextureManager::createTexture(const std::string &Name,
      * In the case of large- or small-aspect ratio textures, this
      * could end up using *more* space... oh well.
      */
-    GLint retval;
+  GLint retval;
+#ifndef __EMSCRIPTEN__
     retval = gluScaleImage(bAlpha ? GL_RGBA : GL_RGB,
                            nWidth,
                            nHeight,
@@ -175,6 +177,12 @@ Texture *TextureManager::createTexture(const std::string &Name,
       throw TextureError(
         "Failed to scale image in TextureManagerc::createTexture()");
     }
+#else
+    /* gluScaleImage unavailable in GLES2 — copy as-is and clamp size check */
+    retval = 0; /* treat as success; texture will be clamped by GPU */
+    memcpy(newdata, pcData,
+           max_texture_size * max_texture_size * depth);
+#endif
     delete[] pcData;
     pcData = newdata;
 
@@ -183,6 +191,7 @@ Texture *TextureManager::createTexture(const std::string &Name,
   }
 
   if (eFilterMode == FM_MIPMAP) {
+#ifndef __EMSCRIPTEN__
     gluBuild2DMipmaps(GL_TEXTURE_2D,
                       depth,
                       nWidth,
@@ -190,6 +199,11 @@ Texture *TextureManager::createTexture(const std::string &Name,
                       bAlpha ? GL_RGBA : GL_RGB,
                       GL_UNSIGNED_BYTE,
                       pcData);
+#else
+    /* gluBuild2DMipmaps unavailable in GLES2 — fall back to plain texture */
+    glTexImage2D(GL_TEXTURE_2D, 0, depth, nWidth, nHeight, 0,
+                 bAlpha ? GL_RGBA : GL_RGB, GL_UNSIGNED_BYTE, pcData);
+#endif
   } else {
     glTexImage2D(GL_TEXTURE_2D,
                  0,

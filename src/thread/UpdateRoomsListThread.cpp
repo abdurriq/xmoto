@@ -43,6 +43,7 @@ int UpdateRoomsListThread::realThreadFunction() {
     LogInfo("WWW: Checking for rooms...");
 
     /* download xml file */
+#if ENABLE_WWW
     FSWeb::downloadFileBz2UsingMd5(v_destinationFile,
                                    XMSession::instance()->webRoomsURL(),
                                    NULL,
@@ -52,6 +53,9 @@ int UpdateRoomsListThread::realThreadFunction() {
     m_pDb->webrooms_updateDB(FDT_CACHE, v_destinationFile);
     StateManager::instance()->sendAsynchronousMessage(
       std::string("ROOMS_UPDATED"));
+#else
+    return 1; /* web features disabled */
+#endif
   } catch (Exception &e) {
     /* file probably doesn't exist */
     LogWarning("Failed to analyse webrooms file");

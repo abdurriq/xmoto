@@ -25,7 +25,14 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "helpers/VMath.h"
 #include "xmoto/UserConfig.h"
 #include "xmoto/VideoRecorder.h"
-#include <curl/curl.h>
+#if ENABLE_WWW
+#  include <curl/curl.h>
+#else
+/* Stub proxy-type constants so ProxySettings compiles without libcurl */
+#  define CURLPROXY_HTTP   0L
+#  define CURLPROXY_SOCKS4 4L
+#  define CURLPROXY_SOCKS5 5L
+#endif
 #include <sstream>
 
 #define PROPAGATE(A, B, C, D) A::propagate(this, new TFunctor1A<A, D>(&A::B, C))

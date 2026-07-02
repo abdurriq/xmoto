@@ -64,11 +64,15 @@ std::string XMDemo::replayFile() const {
 }
 
 void XMDemo::getLevel(ProxySettings *i_proxy) {
+#if ENABLE_WWW
   FSWeb::downloadFile(m_levelFile, m_levelUrl, NULL, NULL, i_proxy);
+#endif
 }
 
 void XMDemo::getReplay(ProxySettings *i_proxy) {
+#if ENABLE_WWW
   FSWeb::downloadFile(m_replayFile, m_replayUrl, NULL, NULL, i_proxy);
+#endif
 }
 
 void XMDemo::destroyFiles() {

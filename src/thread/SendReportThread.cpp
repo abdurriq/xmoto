@@ -41,6 +41,7 @@ int SendReportThread::realThreadFunction() {
   setThreadProgress(0);
 
   try {
+#if ENABLE_WWW
     FSWeb::sendReport(m_author,
                       m_msg,
                       DEFAULT_SENDREPORT_URL,
@@ -51,6 +52,9 @@ int SendReportThread::realThreadFunction() {
     if (v_msg_status_ok == false) {
       return 1;
     }
+#else
+    return 1; /* web features disabled */
+#endif
   } catch (Exception &e) {
     m_msg = GAMETEXT_UPLOAD_ERROR + std::string("\n") + e.getMsg();
     LogWarning("%s", e.getMsg().c_str());

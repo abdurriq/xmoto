@@ -111,6 +111,7 @@ int UploadAllHighscoresThread::realThreadFunction() {
         try {
           bool v_msg_status_ok;
           v_replayPath = XMFS::getUserReplaysDir() + "/" + v_replay + ".rpl";
+#if ENABLE_WWW
           FSWeb::uploadReplay(v_replayPath,
                               XMSession::instance()->idRoom(m_number),
                               XMSession::instance()->profile(),
@@ -123,6 +124,9 @@ int UploadAllHighscoresThread::realThreadFunction() {
           if (v_msg_status_ok == false) {
             LogError(std::string("Failed to upload " + v_replay).c_str());
           }
+#else
+          (void)v_msg_status_ok; /* suppress unused-var warning */
+#endif
         } catch (Exception &e) {
           LogError(std::string("Unable to upload " + v_replay).c_str());
         }

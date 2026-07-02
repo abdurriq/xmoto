@@ -24,7 +24,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include <string>
 #include <vector>
 #ifndef WIN32
-#include <basedir.h>
+#  ifndef __EMSCRIPTEN__
+#    include <basedir.h>
+#  endif
 #endif
 #include "VFileIO_types.h"
 
@@ -214,8 +216,10 @@ private:
   static bool m_isInitialized;
 
 #ifndef WIN32
+#  if !defined(__EMSCRIPTEN__)
   /* xdg basedir */
   static xdgHandle *m_xdgHd;
+#  endif
 #endif
 
   /* Helper functions */

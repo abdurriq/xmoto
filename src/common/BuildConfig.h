@@ -60,4 +60,15 @@ Build configuration
 #define XMOTO_BIG_ENDIAN 0
 #endif
 
+/* Feature flags set by CMake for web/native builds */
+#ifndef ENABLE_WWW
+# if defined(ENABLE_WWW_VALUE)
+#  define ENABLE_WWW ENABLE_WWW_VALUE
+# else
+#  define ENABLE_WWW 1
+# endif
+#endif
+/* ENABLE_NETWORK, ENABLE_THREADING, ENABLE_SERVER follow the same numeric pattern
+   as USE_OPENGL: CMake injects them as -DENABLE_X=0 or -DENABLE_X=1.           */
+
 #endif

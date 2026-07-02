@@ -26,6 +26,8 @@
 
 #define DEFAULT_WWW_MSGFILE(A) "wwwMsg" A ".xml"
 
+#if ENABLE_WWW
+
 HTTPForm::HTTPForm(CURL *curl) {
   m_curl = curl;
 
@@ -1281,3 +1283,47 @@ void XMSync::syncUp(xmDatabase *i_pDb,
 }
 
 void XMSync::syncDown() {}
+
+#else /* !ENABLE_WWW — stub implementations so the linker is satisfied */
+
+WebRoom::WebRoom(WWWAppInterface *p) {
+  m_WebRoomApp = p;
+  m_proxy_settings = nullptr;
+}
+WebRoom::~WebRoom() {}
+void WebRoom::update(const std::string &) {}
+void WebRoom::upgrade(const std::string &, xmDatabase *) {}
+void WebRoom::setProxy(const ProxySettings *p) { m_proxy_settings = p; }
+void WebRoom::setHighscoresUrl(const std::string &u) { m_webhighscores_url = u; }
+void WebRoom::downloadReplay(const std::string &) {}
+bool WebRoom::downloadReplayExists(const std::string &) { return false; }
+
+WebLevels::WebLevels(WWWAppInterface *p) {
+  m_WebLevelApp = p;
+  m_proxy_settings = nullptr;
+}
+WebLevels::~WebLevels() {}
+void WebLevels::update(xmDatabase *) {}
+void WebLevels::upgrade(xmDatabase *, int) {}
+const std::vector<std::string> &WebLevels::getNewDownloadedLevels() {
+  static std::vector<std::string> v;
+  return v;
+}
+const std::vector<std::string> &WebLevels::getUpdatedDownloadedLevels() {
+  static std::vector<std::string> v;
+  return v;
+}
+void WebLevels::setWebsiteInfos(const std::string &, const ProxySettings *) {}
+std::string WebLevels::getDestinationFile(std::string) { return ""; }
+int WebLevels::nbLevelsToGet(xmDatabase *) const { return 0; }
+
+void WebThemes::updateTheme(xmDatabase *, const std::string &,
+                            WWWAppInterface *) {}
+void WebThemes::updateThemeList(xmDatabase *, WWWAppInterface *) {}
+bool WebThemes::isUpdatable(xmDatabase *, const std::string &) { return false; }
+
+void XMSync::syncUp(xmDatabase *, const ProxySettings *,
+                    const std::string &, const std::string &) {}
+void XMSync::syncDown() {}
+
+#endif /* ENABLE_WWW */

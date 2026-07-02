@@ -3,6 +3,8 @@ project(xmoto C CXX)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/CMake")
 
+option(EMSCRIPTEN_BUILD "Build for the browser via Emscripten" OFF)
+
 set(APP_NAME "X-Moto")
 set(APP_COPYRIGHT_YEAR "2025")
 
@@ -18,7 +20,9 @@ ${APP_VERSION_PATCH}")
 include(CheckCXXCompilerFlag)
 include(CheckPrototypeDefinition)
 include(CheckSymbolExists)
-include(TestBigEndian)
+if(NOT EMSCRIPTEN_BUILD)
+  include(TestBigEndian)
+endif()
 
 include(CMake/mxe.cmake)
 
