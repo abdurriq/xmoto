@@ -319,6 +319,10 @@ set(helpers_src
   helpers/utf8.cpp helpers/utf8.h
 )
 
+if(EMSCRIPTEN_BUILD)
+  list(APPEND helpers_src helpers/WebFS.cpp helpers/WebFS.h)
+endif()
+
 set(image_src
   image/tim.cpp image/tim.h
   image/tim_io_stdio.cpp

@@ -76,6 +76,11 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include <signal.h>
 #endif
 
+#ifdef __EMSCRIPTEN__
+#  include <emscripten.h>
+#  include "helpers/WebFS.h"
+#endif
+
 #define MOUSE_DBCLICK_TIME 0.250f
 
 #define XM_MAX_NB_LOOPS_WITH_NONETWORK 3
@@ -220,6 +225,12 @@ void GameApp::run_load(int nNumArgs, char **ppcArgs) {
     return;
   }
   /* ***** */
+
+#ifdef __EMSCRIPTEN__
+  /* Mount persistent user-data storage (IndexedDB via IDBFS) before XMFS::init
+     so that saved config, replays, and the SQLite database are visible. */
+  webfs_mount_and_sync("/xmoto-user");
+#endif
 
   if (v_xmArgs.isOptConfigPath()) {
     XMFS::init("xmoto",
@@ -891,10 +902,33 @@ void GameApp::manageEvent(SDL_Event *Event) {
 }
 
 void GameApp::run_loop() {
+#ifdef __EMSCRIPTEN__
+  /* In the browser, we hand control back to the JS event loop every frame.
+     emscripten_set_main_loop_arg calls run_one_frame() ~60 times/second via
+     requestAnimationFrame, keeping the tab responsive. */
+  emscripten_set_main_loop_arg(
+    [](void *arg) {
+      GameApp *app = static_cast<GameApp *>(arg);
+      app->run_one_frame();
+      if (app->m_bQuit) {
+        emscripten_cancel_main_loop();
+        app->run_unload();
+      }
+    },
+    this,
+    0,   /* fps=0 → use requestAnimationFrame */
+    1    /* simulate_infinite_loop: keeps the C stack clean */
+  );
+#else
+  while (m_bQuit == false) {
+    run_one_frame();
+  }
+#endif
+}
+
+void GameApp::run_one_frame() {
   SDL_Event Event;
   int v_frameTime = 0;
-
-  while (m_bQuit == false) {
     /* strategie :
        no network :
          update // done on the same computer as rendering, so, if update is
@@ -937,9 +971,12 @@ void GameApp::run_loop() {
         manageEvent(&Event);
       }
     } else {
+#ifndef __EMSCRIPTEN__
+      /* SDL_WaitEvent blocks forever — cannot use in the browser. */
       if (SDL_WaitEvent(&Event) == 1) {
         manageEvent(&Event);
       }
+#endif
       while (SDL_PollEvent(&Event)) {
         manageEvent(&Event);
       }
@@ -997,7 +1034,6 @@ void GameApp::run_loop() {
       }
     }
   }
-}
 
 void GameApp::run_unload() {
   if (Logger::isInitialized()) {
@@ -1070,6 +1106,10 @@ void GameApp::run_unload() {
   }
 
   /* Shutdown SDL */
+#ifdef __EMSCRIPTEN__
+  /* Flush in-memory FS changes (config, replays, DB) to IndexedDB. */
+  webfs_persist();
+#endif
   SDL_Quit();
 
   XMLDocument::clean();
@@ -1106,6 +1146,7 @@ void GameApp::wait(int &io_lastFrameTimeStamp,
   }
 
   if (delta > 0) {
+#ifndef __EMSCRIPTEN__
     // we're in advance
     // -> sleep
     int beforeSleep = getXMTimeInt();
@@ -1118,6 +1159,12 @@ void GameApp::wait(int &io_lastFrameTimeStamp,
       int tooMuchSleep = sleepTime - delta;
       io_frameLate = tooMuchSleep;
     }
+#else
+    /* In the browser, requestAnimationFrame controls frame pacing.
+       Just reset the timestamp so the next frame starts fresh. */
+    io_lastFrameTimeStamp = getXMTimeInt();
+    return;
+#endif
   } else {
     // we're late
     // -> update late time

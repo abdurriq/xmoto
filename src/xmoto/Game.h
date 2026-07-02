@@ -69,6 +69,7 @@ public:
   void run(int nNumArgs, char **ppcArgs);
   void run_load(int nNumArgs, char **ppcArgs);
   void run_loop();
+  void run_one_frame(); /* one iteration of the game loop (used by emscripten) */
   void run_unload();
 
   /* load level */
