@@ -6,56 +6,31 @@
   <title>X-Moto Web</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; background: #111; overflow: hidden; }
     body {
-      background: #111;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      font-family: sans-serif;
-      color: #eee;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      font-family: sans-serif; color: #eee;
     }
     #canvas-wrap {
       position: relative;
+      width: 800px; height: 600px;
+      max-width: 100vw; max-height: 100vh;
     }
-    #canvas {
-      display: block;
-      border: 2px solid #333;
-    }
+    #canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
     #overlay {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      background: rgba(0,0,0,0.75);
-      cursor: pointer;
-      gap: 1rem;
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.82); cursor: pointer;
+      gap: 0.8rem; transition: opacity 0.3s;
     }
-    #overlay h1  { font-size: 2.5rem; }
-    #overlay p   { font-size: 1rem; color: #aaa; }
-    #overlay.hidden { display: none; }
-    #status {
-      margin-top: 0.5rem;
-      font-size: 0.85rem;
-      color: #888;
-      min-height: 1.2em;
-    }
-    #progress-wrap {
-      width: 400px; max-width: 90vw;
-      height: 6px;
-      background: #333;
-      border-radius: 3px;
-      overflow: hidden;
-    }
-    #progress-bar {
-      height: 100%;
-      width: 0%;
-      background: #5af;
-      transition: width 0.2s;
-    }
+    #overlay.hidden { opacity: 0; pointer-events: none; }
+    #overlay h1 { font-size: 2.5rem; }
+    #overlay p  { font-size: 0.95rem; color: #aaa; }
+    #status { margin-top: 0.4rem; font-size: 0.8rem; color: #777; min-height: 1em; text-align: center; max-width: 800px; }
+    #progress-wrap { width: 800px; max-width: 90vw; height: 5px; background: #222; border-radius: 2px; overflow: hidden; }
+    #progress-bar  { height: 100%; width: 0%; background: #5af; transition: width 0.2s; }
   </style>
 </head>
 <body>
@@ -63,7 +38,7 @@
     <canvas id="canvas" oncontextmenu="event.preventDefault()"></canvas>
     <div id="overlay">
       <h1>X-Moto</h1>
-      <p>Click to start (audio requires a user gesture)</p>
+      <p>Click to start (required for audio)</p>
     </div>
   </div>
   <div id="status"></div>
@@ -71,19 +46,28 @@
 
   <script>
     var overlay  = document.getElementById('overlay');
-    var status   = document.getElementById('status');
+    var statusEl = document.getElementById('status');
     var bar      = document.getElementById('progress-bar');
 
-    overlay.addEventListener('click', function() {
-      overlay.classList.add('hidden');
-    });
+    overlay.addEventListener('click', function() { overlay.classList.add('hidden'); });
 
     var Module = {
       canvas: document.getElementById('canvas'),
 
+      /* Mount IDBFS before main() starts — avoids Asyncify complications. */
+      preRun: [function() {
+        Module.addRunDependency('idbfs-init');
+        try { FS.mkdir('/xmoto-user'); } catch(e) {}
+        FS.mount(IDBFS, {}, '/xmoto-user');
+        FS.syncfs(true, function(err) {
+          if (err) console.warn('[xmoto] IDBFS read error:', err);
+          else     console.log('[xmoto] IDBFS ready at /xmoto-user');
+          Module.removeRunDependency('idbfs-init');
+        });
+      }],
+
       setStatus: function(text) {
-        status.textContent = text;
-        /* parse "Loading… (X/Y)" for a progress bar */
+        statusEl.textContent = text;
         var m = text.match(/\((\d+)\/(\d+)\)/);
         if (m) bar.style.width = (100 * parseInt(m[1]) / parseInt(m[2])) + '%';
         else if (!text) bar.style.width = '100%';
@@ -91,18 +75,25 @@
 
       onRuntimeInitialized: function() {
         overlay.classList.add('hidden');
-        status.textContent = '';
+        statusEl.textContent = '';
         bar.style.width = '100%';
+        console.log('[xmoto] Runtime ready.');
       },
 
-      print:    function(t) { console.log('[xmoto]', t); },
+      print:    function(t) { console.log('[xmoto]', t);  },
       printErr: function(t) { console.warn('[xmoto]', t); },
     };
 
     window.onerror = function(msg, src, l, c, err) {
-      status.textContent = 'Error: ' + msg;
-      console.error('Fatal:', msg, err);
+      statusEl.textContent = 'Error: ' + msg;
+      console.error('[xmoto] Fatal:', msg, err);
     };
+
+    /* Silence harmless Asyncify sleep integers that surface as unhandled rejections */
+    window.addEventListener('unhandledrejection', function(e) {
+      if (typeof e.reason === 'number') { e.preventDefault(); return; }
+      console.warn('[xmoto] Unhandled rejection:', e.reason);
+    });
   </script>
   {{{ SCRIPT }}}
 </body>
