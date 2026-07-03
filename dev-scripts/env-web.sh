@@ -23,3 +23,17 @@ if [ ! -f "$LIBXML2_DIR/configure.ac" ]; then
     | tar -xJ -C "$LIBXML2_DIR" --strip-components=1
   echo "libxml2 ready."
 fi
+
+# Build xmoto.bin (packed game assets) from a native build if not present.
+# The web build preloads this file via --preload-file.
+BIN_FILE="$(dirname "$0")/../bin/xmoto.bin"
+if [ ! -f "$BIN_FILE" ]; then
+  echo "xmoto.bin not found — building native xmoto to create it..."
+  NATIVE_DIR="$(dirname "$0")/../build-native"
+  mkdir -p "$NATIVE_DIR"
+  (cd "$NATIVE_DIR" && cmake .. -DCMAKE_BUILD_TYPE=Release -DUSE_GETTEXT=OFF \
+      -DCMAKE_EXE_LINKER_FLAGS="-lGLU" -DEMSCRIPTEN_BUILD=OFF > /dev/null 2>&1)
+  make -C "$NATIVE_DIR" -j"$(nproc)" xmoto 2>&1 | tail -3
+  "$NATIVE_DIR/src/xmoto" --pack "$BIN_FILE" "$(dirname "$0")/../bin" 2>&1 | tail -2
+  echo "xmoto.bin ready ($(du -sh "$BIN_FILE" | cut -f1))."
+fi
