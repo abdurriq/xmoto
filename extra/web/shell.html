@@ -100,9 +100,11 @@
 
     window.onerror = function(msg, src, l, c, err) {
       if (typeof err === 'number' || /^\d+$/.test(msg)) return; /* Emscripten internals */
-      errorBar.textContent = 'Error: ' + msg;
+      /* Show the crash message in the error bar AND log the full stack */
+      errorBar.textContent = 'Crash: ' + msg;
       errorBar.style.display = 'block';
-      console.error('[xmoto]', msg, err);
+      console.error('[xmoto] Crash:', msg);
+      if (err && err.stack) console.error(err.stack);
     };
 
     window.addEventListener('unhandledrejection', function(e) {
