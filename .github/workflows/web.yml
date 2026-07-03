@@ -1,0 +1,70 @@
+name: Web Build (Emscripten)
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build-web:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── Emscripten SDK ──────────────────────────────────────────────────────
+      - name: Install Emscripten 3.1.50
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 3.1.50
+          actions-cache-folder: .emsdk-cache
+
+      # ── libxml2 (vendored, built for WASM) ──────────────────────────────────
+      - name: Cache libxml2 WASM build
+        id: cache-libxml2
+        uses: actions/cache@v4
+        with:
+          path: vendor/libxml2
+          key: libxml2-wasm-2.9.14-emsdk-3.1.50
+
+      - name: Download & unpack libxml2 source
+        if: steps.cache-libxml2.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p vendor/libxml2
+          curl -sL "https://download.gnome.org/sources/libxml2/2.9/libxml2-2.9.14.tar.xz" \
+            | tar -xJ -C vendor/libxml2 --strip-components=1
+
+      # ── CMake configure ─────────────────────────────────────────────────────
+      - name: Configure WASM build
+        run: |
+          mkdir -p build-web
+          cd build-web
+          emcmake cmake .. \
+            -DEMSCRIPTEN_BUILD=ON \
+            -DCMAKE_BUILD_TYPE=Release
+
+      # ── Compile & link ──────────────────────────────────────────────────────
+      - name: Build
+        run: |
+          cd build-web
+          emmake make -j$(nproc) 2>&1 | tail -5
+
+      # ── Verify outputs ──────────────────────────────────────────────────────
+      - name: Check build outputs
+        run: |
+          ls -lh build-web/src/xmoto.{html,js,wasm,data}
+          echo "Build succeeded."
+
+      # ── Upload artifact ─────────────────────────────────────────────────────
+      - name: Upload web build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: xmoto-web-${{ github.sha }}
+          path: |
+            build-web/src/xmoto.html
+            build-web/src/xmoto.js
+            build-web/src/xmoto.wasm
+            build-web/src/xmoto.data
+            build-web/src/sw.js
+          retention-days: 30

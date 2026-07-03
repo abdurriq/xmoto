@@ -15,6 +15,19 @@
     #canvas-wrap { position: relative; width: 800px; height: 600px; max-width: 100vw; max-height: 100vh; }
     #canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
 
+    /* Fullscreen button — top-right corner of the canvas */
+    #fs-btn {
+      position: absolute; top: 6px; right: 6px; z-index: 10;
+      background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.25);
+      color: #fff; font-size: 1rem; line-height: 1; padding: 4px 6px;
+      border-radius: 4px; cursor: pointer; opacity: 0.6;
+      transition: opacity 0.2s;
+    }
+    #fs-btn:hover { opacity: 1; }
+    :fullscreen #canvas-wrap, :-webkit-full-screen #canvas-wrap {
+      width: 100vw; height: 100vh;
+    }
+
     /* Loading screen — shown while assets download, auto-hidden once runtime starts */
     #loading {
       position: absolute; inset: 0;
@@ -40,6 +53,7 @@
 <body>
   <div id="canvas-wrap">
     <canvas id="canvas" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
+    <button id="fs-btn" title="Toggle fullscreen (F11)">&#x26F6;</button>
     <div id="loading">
       <h1>X-Moto</h1>
       <div id="loading-status">Loading…</div>
@@ -54,6 +68,24 @@
     var bar       = document.getElementById('progress-bar');
     var errorBar  = document.getElementById('error-bar');
     var canvas    = document.getElementById('canvas');
+
+    /* Fullscreen toggle */
+    document.getElementById('fs-btn').addEventListener('click', function() {
+      var wrap = document.getElementById('canvas-wrap');
+      if (document.fullscreenElement) {
+        document.exitFullscreen();
+      } else {
+        wrap.requestFullscreen().catch(function(e) {
+          console.warn('[xmoto] fullscreen error:', e);
+        });
+      }
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'F11') {
+        e.preventDefault();
+        document.getElementById('fs-btn').click();
+      }
+    });
 
     /* Focus the canvas on any interaction so SDL receives events.
        The first click/keydown also satisfies the browser's autoplay policy,

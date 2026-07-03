@@ -2393,7 +2393,27 @@ void GameRenderer::_RenderBlockEdges(Block *pBlock) {
       }
     }
   } else if (pDrawlib->getBackend() == DrawLib::backend_SdlGFX) {
-    // SDLGFX::TODO
+    for (unsigned int i = 0; i < pBlock->getEdgeGeoms().size(); i++) {
+      TColor c = pBlock->getEdgeGeoms()[i]->edgeBlendColor;
+      pDrawlib->setColorRGBA(c.Red(), c.Green(), c.Blue(), c.Alpha());
+
+      for (unsigned int j = 0; j < pBlock->getEdgeGeoms()[i]->Polys.size(); j++) {
+        GeomPoly *pPoly = pBlock->getEdgeGeoms()[i]->Polys[j];
+        pDrawlib->setTexture(pBlock->getEdgeGeoms()[i]->pTexture, BLEND_MODE_A);
+
+        /* Edge geoms pack quads as 4 consecutive vertices each */
+        for (unsigned int k = 0; k + 3 < pPoly->nNumVertices; k += 4) {
+          pDrawlib->startDraw(DRAW_MODE_POLYGON);
+          for (unsigned int v = 0; v < 4; v++) {
+            pDrawlib->glTexCoord(pPoly->pTexCoords[k + v].x,
+                                 pPoly->pTexCoords[k + v].y);
+            pDrawlib->glVertex(pPoly->pVertices[k + v].x,
+                               pPoly->pVertices[k + v].y);
+          }
+          pDrawlib->endDraw();
+        }
+      }
+    }
   }
 }
 
@@ -2622,10 +2642,7 @@ void GameRenderer::_RenderBackground(Scene *i_scene) {
 }
 
 void GameRenderer::_RenderLayer(Scene *i_scene, int layer) {
-  if (GameApp::instance()->getDrawLib()->getBackend() !=
-      DrawLib::backend_OpenGl) {
-    return;
-  }
+  DrawLib *pDrawlib = GameApp::instance()->getDrawLib();
 
   Vector2f layerOffset = i_scene->getLevelSrc()->getLayerOffset(layer);
 
@@ -2667,14 +2684,24 @@ void GameRenderer::_RenderLayer(Scene *i_scene, int layer) {
   std::sort(Blocks.begin(), Blocks.end(), AscendingTextureSort());
 
 #ifdef ENABLE_OPENGL
-  glPushMatrix();
-  glTranslatef(translateVector.x, translateVector.y, 0);
-
-  for (unsigned int i = 0; i < Blocks.size(); i++) {
-    _RenderStaticBlock(Blocks[i]);
-  }
-  glPopMatrix();
+  if (pDrawlib->getBackend() == DrawLib::backend_OpenGl) {
+    glPushMatrix();
+    glTranslatef(translateVector.x, translateVector.y, 0);
+    for (unsigned int i = 0; i < Blocks.size(); i++) {
+      _RenderStaticBlock(Blocks[i]);
+    }
+    glPopMatrix();
+  } else
 #endif
+  {
+    /* GLES2/SdlGFX: apply parallax offset by modifying the model matrix,
+       then undo it afterwards so subsequent rendering is unaffected. */
+    pDrawlib->setTranslate(translateVector.x, translateVector.y);
+    for (unsigned int i = 0; i < Blocks.size(); i++) {
+      _RenderStaticBlock(Blocks[i]);
+    }
+    pDrawlib->setTranslate(-translateVector.x, -translateVector.y);
+  }
 }
 
 void GameRenderer::_RenderLayers(Scene *i_scene, bool renderFront) {
