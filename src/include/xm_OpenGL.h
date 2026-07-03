@@ -43,6 +43,22 @@
 #  define GL_COLOR_ARRAY         0x8076
 #  define GL_NORMAL_ARRAY        0x8075
 #  define glEnableClientState(x)  ((void)0)
+
+/* glEnable(GL_TEXTURE_2D) is not a valid cap in GLES2/WebGL2; texturing is
+   controlled by binding.  All other glEnable/glDisable caps work normally.
+   The ifndef guards prevent redefinition when this header is included multiple
+   times in the same translation unit.                                        */
+#  ifndef XM_GLES2_ENABLE_FILTER_DEFINED
+#  define XM_GLES2_ENABLE_FILTER_DEFINED
+static inline void xm_glEnable(GLenum cap) {
+  if (cap != 0x0DE1 /* GL_TEXTURE_2D */) (glEnable)(cap);
+}
+static inline void xm_glDisable(GLenum cap) {
+  if (cap != 0x0DE1) (glDisable)(cap);
+}
+#  endif
+#  define glEnable  xm_glEnable
+#  define glDisable xm_glDisable
 #  define glDisableClientState(x) ((void)0)
 #  define glVertexPointer(...)    ((void)0)
 #  define glTexCoordPointer(...)  ((void)0)

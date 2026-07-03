@@ -201,13 +201,13 @@ Texture *TextureManager::createTexture(const std::string &Name,
                       pcData);
 #else
     /* gluBuild2DMipmaps unavailable in GLES2 — fall back to plain texture */
-    glTexImage2D(GL_TEXTURE_2D, 0, depth, nWidth, nHeight, 0,
+    glTexImage2D(GL_TEXTURE_2D, 0, bAlpha ? GL_RGBA : GL_RGB, nWidth, nHeight, 0,
                  bAlpha ? GL_RGBA : GL_RGB, GL_UNSIGNED_BYTE, pcData);
 #endif
   } else {
     glTexImage2D(GL_TEXTURE_2D,
                  0,
-                 depth,
+                 bAlpha ? GL_RGBA : GL_RGB,  /* internalformat: explicit, not legacy int */
                  nWidth,
                  nHeight,
                  0,

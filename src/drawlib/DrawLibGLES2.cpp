@@ -764,11 +764,16 @@ void GLES2FontManager::printStringGradOne(DrawLib *dl, FontGlyph *fg,
       float x1 = (float)(vx + (int)l->m_drawW), y1 = (float)(vy + (int)l->m_drawH);
       float ux = l->m_u.x, uy = l->m_u.y, vvx = l->m_v.x, vvy = l->m_v.y;
 
+      /* SDL TTF surfaces are stored top-to-bottom; OpenGL/GLES2 UV (0,0) is
+         at the BOTTOM-LEFT of the texture (bottom of the SDL image = bottom of
+         the character).  Match the desktop GLFontManager convention: the
+         GL-bottom vertex uses UV v=vvy (SDL bottom = char bottom) and the
+         GL-top vertex uses UV v=uy=0 (SDL top = char top).               */
       Vertex2D q[4] = {
-        {x0, y0, ux,  uy,  r1, g1, b1, a1},
-        {x1, y0, vvx, uy,  r2, g2, b2, a2},
-        {x1, y1, vvx, vvy, r4, g4, b4, a4},
-        {x0, y1, ux,  vvy, r3, g3, b3, a3},
+        {x0, y0, ux,  vvy, r1, g1, b1, a1},   /* GL bottom-left  → char bottom-left  */
+        {x1, y0, vvx, vvy, r2, g2, b2, a2},   /* GL bottom-right → char bottom-right */
+        {x1, y1, vvx, uy,  r4, g4, b4, a4},   /* GL top-right    → char top-right    */
+        {x0, y1, ux,  uy,  r3, g3, b3, a3},   /* GL top-left     → char top-left     */
       };
 
       glBindBuffer(GL_ARRAY_BUFFER, gles->m_vbo);

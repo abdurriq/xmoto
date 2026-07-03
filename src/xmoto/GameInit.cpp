@@ -921,10 +921,20 @@ void GameApp::run_loop() {
   emscripten_set_main_loop_arg(
     [](void *arg) {
       GameApp *app = static_cast<GameApp *>(arg);
+      /* Guard: run_unload() might have been called already (e.g. quit set
+         during init) — check before touching any game state. */
+      if (app->m_bQuit) {
+        emscripten_cancel_main_loop();
+        /* Only call run_unload once; after that the app is invalid. */
+        static bool s_unloaded = false;
+        if (!s_unloaded) { s_unloaded = true; app->run_unload(); }
+        return;
+      }
       app->run_one_frame();
       if (app->m_bQuit) {
         emscripten_cancel_main_loop();
-        app->run_unload();
+        static bool s_unloaded2 = false;
+        if (!s_unloaded2) { s_unloaded2 = true; app->run_unload(); }
       }
     },
     this,
