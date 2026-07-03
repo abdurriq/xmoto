@@ -583,6 +583,7 @@ void StateManager::render() {
   if (doRender() == true) {
     DrawLib *drawLib = GameApp::instance()->getDrawLib();
     drawLib->resetGraphics();
+    drawLib->resetGraphics();
 
     // erase screen if the first state allow somebody to write before (it means
     // that it has potentially some transparent parts)

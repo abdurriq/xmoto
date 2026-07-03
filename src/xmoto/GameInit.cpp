@@ -121,7 +121,13 @@ int main(int nNumArgs, char **ppcArgs) {
   try {
     /* Setup basic info */
     GameApp::instance()->run(nNumArgs, ppcArgs);
+#ifndef __EMSCRIPTEN__
+    /* On web, run() returns immediately after setting up the RAF callback.
+       GameApp must stay alive for the lifetime of the page.  run_unload()
+       is called from the RAF callback when m_bQuit becomes true, which
+       eventually calls GameApp::destroy() via the shutdown path.          */
     GameApp::destroy();
+#endif
   } catch (Exception &e) {
     if (Logger::isInitialized()) {
       LogError((std::string("Exception: ") + e.getMsg()).c_str());
@@ -1029,7 +1035,6 @@ void GameApp::run_one_frame() {
       StateManager::instance()->render();
     }
 
-    // update network
     // skip network update if not the time
     if (NetClient::instance()->isConnected()) {
       int v_timeout = v_frameTime -
