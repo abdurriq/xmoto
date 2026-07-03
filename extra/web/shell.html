@@ -92,6 +92,26 @@
         bar.style.width = '100%';
         canvas.focus();
         console.log('[xmoto] Runtime ready.');
+
+        /* ---- Persistent storage: keep IDBFS synced to IndexedDB ----
+           syncfs(false,...) flushes in-memory writes → IndexedDB.
+           We do this:
+             1. Every 10 s via setInterval (catches incremental saves).
+             2. Immediately when the page becomes hidden (tab switch,
+                navigate away, refresh) — most reliable pre-unload hook. */
+        function persistNow() {
+          try {
+            FS.syncfs(false, function(err) {
+              if (err) console.warn('[xmoto] IDBFS sync error:', err);
+            });
+          } catch(e) { /* FS not yet ready */ }
+        }
+
+        setInterval(persistNow, 10000);
+
+        document.addEventListener('visibilitychange', function() {
+          if (document.hidden) persistNow();
+        });
       },
 
       print:    function(t) { console.log('[xmoto]', t);  },
