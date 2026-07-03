@@ -626,7 +626,10 @@ void DrawLibGLES2::setClipRect(int x, int y, unsigned int w, unsigned int h) {
   _flush_batch();
   m_nLScissorX = x; m_nLScissorY = y;
   m_nLScissorW = w; m_nLScissorH = h;
-  glScissor(x, m_renderSurf->upright().y - (y + h), w, h);
+  /* m_renderSurf->upright().y converts screen-y (top=0) to GL-y (bottom=0).
+     Fall back to m_nDispHeight when m_renderSurf is not yet set.           */
+  int surfH = m_renderSurf ? m_renderSurf->upright().y : (int)m_nDispHeight;
+  glScissor(x, surfH - (y + (int)h), (int)w, (int)h);
 }
 
 void DrawLibGLES2::setClipRect(SDL_Rect *r) {
