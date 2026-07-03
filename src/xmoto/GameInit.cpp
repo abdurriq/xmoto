@@ -79,7 +79,30 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #ifdef __EMSCRIPTEN__
 #  include <emscripten.h>
 #  include "helpers/WebFS.h"
-#endif
+
+/* Exported to JavaScript so the page can flush settings to the emscripten VFS
+   before IDBFS syncfs() persists them to IndexedDB.  Called on every periodic
+   sync (every 10 s) and on visibilitychange so refreshing the page doesn't
+   lose audio/key settings even without a clean in-game quit. */
+extern "C" {
+EMSCRIPTEN_KEEPALIVE
+void xmoto_save_config() {
+  GameApp *app = GameApp::instance();
+  if (!app) return;
+  UserConfig *cfg = app->getUserConfig();
+  if (!cfg) return;
+  auto *db = xmDatabase::instance("main");
+  if (!db || !db->isOpen()) return;
+  if (!app->getDrawLib()) return;
+  try {
+    XMSession::instance("file")->save(cfg, db);
+    Input::instance()->saveConfig(
+      cfg, db, XMSession::instance("file")->profile());
+    cfg->saveFile();
+  } catch (...) {}
+}
+} /* extern "C" */
+#endif /* __EMSCRIPTEN__ */
 
 #define MOUSE_DBCLICK_TIME 0.250f
 

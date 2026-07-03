@@ -29,20 +29,39 @@ cd "$BUILD_DIR"
 python3 - "$PORT" <<'PYEOF'
 import http.server, sys, os
 
-LONG_CACHE  = 'public, max-age=86400'   # 24 h  — large static build artefacts
-SHORT_CACHE = 'no-cache'                 # always revalidate — html / small files
+def _cc(path):
+    ext = os.path.splitext(path)[1].lower()
+    return 'public, max-age=86400' if ext in ('.wasm', '.data', '.js') else 'no-cache'
+
+def _etag(path):
+    try:
+        s = os.stat(path)
+        return f'"{int(s.st_mtime)}-{s.st_size}"'
+    except OSError:
+        return None
 
 class XMHandler(http.server.SimpleHTTPRequestHandler):
+    def send_head(self):
+        path = self.translate_path(self.path)
+        etag = _etag(path)
+        # Return 304 if client already has this exact version (ETag match)
+        if etag and self.headers.get('If-None-Match') == etag:
+            self.send_response(304)
+            self.send_header('ETag', etag)
+            self.send_header('Cache-Control', _cc(path))
+            http.server.BaseHTTPRequestHandler.end_headers(self)
+            return None
+        return super().send_head()
+
     def end_headers(self):
-        ext = os.path.splitext(self.path)[1].lower()
-        if ext in ('.wasm', '.data', '.js'):
-            self.send_header('Cache-Control', LONG_CACHE)
-        else:
-            self.send_header('Cache-Control', SHORT_CACHE)
+        path = self.translate_path(self.path)
+        etag = _etag(path)
+        if etag:
+            self.send_header('ETag', etag)
+        self.send_header('Cache-Control', _cc(path))
         super().end_headers()
 
     def log_message(self, fmt, *args):
-        # Only log non-304 responses to keep output readable
         if args[1] != '304':
             super().log_message(fmt, *args)
 

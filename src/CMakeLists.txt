@@ -885,6 +885,7 @@ if(EMSCRIPTEN_BUILD)
     "SHELL:-s ALLOW_MEMORY_GROWTH=1"
     "SHELL:-s INITIAL_MEMORY=134217728"
     "SHELL:-s EXPORTED_RUNTIME_METHODS=[\"callMain\",\"FS\",\"PATH\",\"getExceptionMessage\"]"
+    "SHELL:-s EXPORTED_FUNCTIONS=[\"_main\",\"_xmoto_save_config\"]"
     "--shell-file"
     "${CMAKE_SOURCE_DIR}/extra/web/shell.html"
     "--preload-file"
