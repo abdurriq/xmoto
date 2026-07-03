@@ -936,7 +936,18 @@ void GameApp::run_loop() {
         if (!s_unloaded) { s_unloaded = true; app->run_unload(); }
         return;
       }
-      app->run_one_frame();
+      try {
+        app->run_one_frame();
+      } catch (Exception &e) {
+        LogError("RAF frame exception: %s", e.getMsg().c_str());
+        app->m_bQuit = true;
+      } catch (std::exception &e) {
+        LogError("RAF frame std::exception: %s", e.what());
+        app->m_bQuit = true;
+      } catch (...) {
+        LogError("RAF frame unknown exception");
+        app->m_bQuit = true;
+      }
       if (app->m_bQuit) {
         emscripten_cancel_main_loop();
         static bool s_unloaded2 = false;

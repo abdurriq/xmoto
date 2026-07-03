@@ -51,10 +51,15 @@
 #  ifndef XM_GLES2_ENABLE_FILTER_DEFINED
 #  define XM_GLES2_ENABLE_FILTER_DEFINED
 static inline void xm_glEnable(GLenum cap) {
-  if (cap != 0x0DE1 /* GL_TEXTURE_2D */) (glEnable)(cap);
+  /* Filter caps not supported by GLES2/WebGL2 */
+  if (cap == 0x0DE1 /* GL_TEXTURE_2D */ ||
+      cap == 0x0BC0 /* GL_ALPHA_TEST */ ||
+      cap == 0x0B60 /* GL_FOG */) return;
+  (glEnable)(cap);
 }
 static inline void xm_glDisable(GLenum cap) {
-  if (cap != 0x0DE1) (glDisable)(cap);
+  if (cap == 0x0DE1 || cap == 0x0BC0 || cap == 0x0B60) return;
+  (glDisable)(cap);
 }
 #  endif
 #  define glEnable  xm_glEnable

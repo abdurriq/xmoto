@@ -56,10 +56,14 @@ DrawLib::backendtype DrawLib::m_backend = DrawLib::backend_None;
 DrawLib *DrawLib::DrawLibFromName(std::string i_drawLibName) {
 #ifdef ENABLE_OPENGL
   if (i_drawLibName == "OPENGL") {
-    m_backend = backend_OpenGl;
 #ifdef __EMSCRIPTEN__
+    /* GLES2 renderer uses the drawlib vertex-API path (same as SdlGFX)
+       so that Renderer.cpp routes through startDraw/glVertex/endDraw
+       instead of direct glDrawArrays(GL_POLYGON/GL_QUADS,...) calls. */
+    m_backend = backend_SdlGFX;
     return new DrawLibGLES2();
 #else
+    m_backend = backend_OpenGl;
     return new DrawLibOpenGL();
 #endif
   }
@@ -73,10 +77,11 @@ DrawLib *DrawLib::DrawLibFromName(std::string i_drawLibName) {
 
 /* if no name is given, try to force one renderer */
 #ifdef ENABLE_OPENGL
-  m_backend = backend_OpenGl;
 #ifdef __EMSCRIPTEN__
+  m_backend = backend_SdlGFX;
   return new DrawLibGLES2();
 #else
+  m_backend = backend_OpenGl;
   return new DrawLibOpenGL();
 #endif
 #endif
