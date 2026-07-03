@@ -137,6 +137,15 @@
       if (typeof e.reason === 'number') { e.preventDefault(); }
     });
   </script>
+  <script>
+    /* Register Service Worker to cache .wasm/.data/.js across Ctrl+R reloads.
+       Ctrl+Shift+R bypasses the SW and always fetches fresh files.           */
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(function(e) {
+        console.warn('[xmoto] SW registration failed:', e);
+      });
+    }
+  </script>
   {{{ SCRIPT }}}
 </body>
 </html>

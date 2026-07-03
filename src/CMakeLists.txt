@@ -892,4 +892,11 @@ if(EMSCRIPTEN_BUILD)
     "${CMAKE_SOURCE_DIR}/bin@/"
     "-lidbfs.js"
   )
+
+  # Copy the Service Worker next to xmoto.html so it can control the same scope
+  add_custom_command(TARGET xmoto POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy
+      "${CMAKE_SOURCE_DIR}/extra/web/sw.js"
+      "${CMAKE_CURRENT_BINARY_DIR}/sw.js"
+    COMMENT "Copying sw.js to build output")
 endif()
