@@ -35,7 +35,7 @@
 </head>
 <body>
   <div id="canvas-wrap">
-    <canvas id="canvas" oncontextmenu="event.preventDefault()"></canvas>
+    <canvas id="canvas" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
     <div id="overlay">
       <h1>X-Moto</h1>
       <p>Click to start (required for audio)</p>
@@ -49,7 +49,16 @@
     var statusEl = document.getElementById('status');
     var bar      = document.getElementById('progress-bar');
 
-    overlay.addEventListener('click', function() { overlay.classList.add('hidden'); });
+    overlay.addEventListener('click', function() {
+      overlay.classList.add('hidden');
+      /* Give the canvas browser focus so SDL receives keyboard and mouse events */
+      document.getElementById('canvas').focus();
+    });
+
+    /* Also focus the canvas whenever the user clicks it directly */
+    document.getElementById('canvas').addEventListener('click', function() {
+      this.focus();
+    });
 
     var Module = {
       canvas: document.getElementById('canvas'),

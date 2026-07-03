@@ -671,15 +671,23 @@ void DrawLibGLES2::setLineWidth(float) {
 
 void DrawLibGLES2::setCameraDimensionality(CameraDimension dim) {
   _flush_batch();
-  glViewport(m_renderSurf->downleft().x, m_renderSurf->downleft().y,
-             m_renderSurf->size().x,     m_renderSurf->size().y);
-  if (dim == CAMERA_2D) {
-    mat4_ortho(m_proj,
-               (float)m_renderSurf->downleft().x,
-               (float)m_renderSurf->upright().x,
-               (float)m_renderSurf->downleft().y,
-               (float)m_renderSurf->upright().y,
-               -1.f, 1.f);
+  /* Guard: m_renderSurf is null before setRenderSurface() is first called.
+     Fall back to the full display viewport so glViewport always succeeds.   */
+  if (m_renderSurf) {
+    glViewport(m_renderSurf->downleft().x, m_renderSurf->downleft().y,
+               m_renderSurf->size().x,     m_renderSurf->size().y);
+    if (dim == CAMERA_2D) {
+      mat4_ortho(m_proj,
+                 0.f, (float)m_renderSurf->size().x,
+                 0.f, (float)m_renderSurf->size().y,
+                 -1.f, 1.f);
+    }
+  } else {
+    glViewport(0, 0, (int)m_nDispWidth, (int)m_nDispHeight);
+    if (dim == CAMERA_2D) {
+      mat4_ortho(m_proj, 0.f, (float)m_nDispWidth, 0.f, (float)m_nDispHeight,
+                 -1.f, 1.f);
+    }
   }
   mat4_identity(m_model);
   _recompute_mvp();
@@ -729,7 +737,12 @@ void GLES2FontManager::printStringGradOne(DrawLib *dl, FontGlyph *fg,
   unsigned int curLine = getLongestLineSize(val, 0, 1);
 
   int vx = ix + (int)((longest - curLine) / 2 * (perCentered + 1.0));
-  int vy = -iy + dl->getRenderSurface()->size().y - (int)g->firstLineH();
+  /* Guard: getRenderSurface() returns null if setRenderSurface() has not yet
+     been called (e.g., during early state transitions).  Fall back to the
+     display height so the vertical text position is still correct.         */
+  int surfH = dl->getRenderSurface() ? dl->getRenderSurface()->size().y
+                                     : (int)dl->getDispHeight();
+  int vy = -iy + surfH - (int)g->firstLineH();
   unsigned int lineH = 0;
   bool prevNL = false;
 

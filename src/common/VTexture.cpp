@@ -200,9 +200,11 @@ Texture *TextureManager::createTexture(const std::string &Name,
                       GL_UNSIGNED_BYTE,
                       pcData);
 #else
-    /* gluBuild2DMipmaps unavailable in GLES2 — fall back to plain texture */
+    /* gluBuild2DMipmaps unavailable in GLES2 — upload base level then
+       let the GPU generate the mipmap chain via glGenerateMipmap.        */
     glTexImage2D(GL_TEXTURE_2D, 0, bAlpha ? GL_RGBA : GL_RGB, nWidth, nHeight, 0,
                  bAlpha ? GL_RGBA : GL_RGB, GL_UNSIGNED_BYTE, pcData);
+    glGenerateMipmap(GL_TEXTURE_2D);
 #endif
   } else {
     glTexImage2D(GL_TEXTURE_2D,
