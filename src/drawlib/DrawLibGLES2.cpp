@@ -679,19 +679,24 @@ void DrawLibGLES2::setCameraDimensionality(CameraDimension dim) {
   if (m_renderSurf) {
     glViewport(m_renderSurf->downleft().x, m_renderSurf->downleft().y,
                m_renderSurf->size().x,     m_renderSurf->size().y);
-    if (dim == CAMERA_2D) {
-      mat4_ortho(m_proj,
-                 0.f, (float)m_renderSurf->size().x,
-                 0.f, (float)m_renderSurf->size().y,
-                 -1.f, 1.f);
-    }
   } else {
     glViewport(0, 0, (int)m_nDispWidth, (int)m_nDispHeight);
-    if (dim == CAMERA_2D) {
-      mat4_ortho(m_proj, 0.f, (float)m_nDispWidth, 0.f, (float)m_nDispHeight,
-                 -1.f, 1.f);
-    }
   }
+
+  if (dim == CAMERA_2D) {
+    /* Screen-pixel projection: map [0,W]×[0,H] → [-1,1] clip space.
+       glVertexSP() feeds pixel coords (with y flipped to OpenGL orientation).*/
+    int w = m_renderSurf ? m_renderSurf->size().x : (int)m_nDispWidth;
+    int h = m_renderSurf ? m_renderSurf->size().y : (int)m_nDispHeight;
+    mat4_ortho(m_proj, 0.f, (float)w, 0.f, (float)h, -1.f, 1.f);
+  } else {
+    /* Game-world projection: identity, same as desktop GL (CAMERA_3D).
+       The renderer then applies scale + translate via setScale/setTranslate
+       so that world coords map directly to NDC.  glVertex() feeds raw
+       game-world coordinates which the model matrix transforms to NDC. */
+    mat4_identity(m_proj);
+  }
+
   mat4_identity(m_model);
   _recompute_mvp();
 }
