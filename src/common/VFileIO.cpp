@@ -1238,7 +1238,7 @@ void XMFS::init(const std::string &AppDir,
     m_UserCacheDir     = "/xmoto-user/cache";
     m_UserDataDirUTF8  = m_UserDataDir;
   }
-  m_SystemDataDir     = "/";
+  m_SystemDataDir     = "";
   m_bGotSystemDataDir  = true;
   m_SystemLocaleDir    = "";
 #elif defined(WIN32) /* Windoze... */

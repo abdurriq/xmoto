@@ -85,8 +85,16 @@
     };
 
     window.onerror = function(msg, src, l, c, err) {
-      /* Numeric exceptions are Emscripten/Asyncify internals — not real errors */
-      if (typeof err === 'number' || /^\d+$/.test(msg)) return;
+      /* Numeric exceptions are Emscripten internals — try to decode them */
+      if (typeof err === 'number') {
+        var decoded = '';
+        try { decoded = Module.getExceptionMessage ? Module.getExceptionMessage(err) : String(err); }
+        catch(e) { decoded = String(err); }
+        console.error('[xmoto] C++ exception:', decoded);
+        statusEl.textContent = 'Startup error: ' + decoded;
+        return;
+      }
+      if (/^\d+$/.test(msg)) { console.warn('[xmoto] Numeric exception (ignored):', msg); return; }
       statusEl.textContent = 'Error: ' + msg;
       console.error('[xmoto] Fatal:', msg, err);
     };

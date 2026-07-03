@@ -140,6 +140,12 @@ int main(int nNumArgs, char **ppcArgs) {
              e.getMsg().c_str());
     MessageBox(NULL, cBuf, "X-Moto Error", MB_OK | MB_ICONERROR);
 #endif
+  } catch (std::exception &e) {
+    printf("fatal std::exception : %s\n", e.what());
+    SDL_Quit();
+  } catch (...) {
+    printf("fatal unknown exception\n");
+    SDL_Quit();
   }
   return 0;
 }

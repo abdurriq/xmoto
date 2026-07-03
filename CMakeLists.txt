@@ -26,6 +26,14 @@ endif()
 
 include(CMake/mxe.cmake)
 
+# -fwasm-exceptions must be applied to ALL translation units (including vendored
+# libs) before any add_subdirectory, otherwise the exception ABIs are mixed and
+# the linker cannot resolve emscripten_longjmp.
+if(EMSCRIPTEN_BUILD)
+  add_compile_options(-fwasm-exceptions)
+  add_link_options(-fwasm-exceptions)
+endif()
+
 add_subdirectory(src)
 
 # we set some cpack variables in src/CMakeLists.txt so include this after src/
