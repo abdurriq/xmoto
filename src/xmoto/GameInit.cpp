@@ -167,7 +167,13 @@ void GameApp::run(int nNumArgs, char **ppcArgs) {
     run_unload();
     throw e;
   }
+#ifdef __EMSCRIPTEN__
+  /* On web, emscripten_set_main_loop_arg (simulate_infinite_loop=0) returns
+     here immediately.  run_unload() will be called from the RAF callback once
+     m_bQuit is set — do NOT call it here or we unload before the game runs. */
+#else
   run_unload();
+#endif
 }
 
 void GameApp::run_load(int nNumArgs, char **ppcArgs) {
@@ -917,8 +923,11 @@ void GameApp::run_loop() {
     },
     this,
     0,   /* fps=0 → use requestAnimationFrame */
-    1    /* simulate_infinite_loop: keeps the C stack clean */
+    0    /* simulate_infinite_loop=0: return normally, no integer throw */
   );
+  /* Returns here immediately; the RAF callback runs run_one_frame() each tick.
+     run_unload() is called from the callback above when m_bQuit becomes true.
+     Do NOT fall through to run_unload() in GameApp::run() — see run() below. */
 #else
   while (m_bQuit == false) {
     run_one_frame();

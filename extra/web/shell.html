@@ -85,6 +85,8 @@
     };
 
     window.onerror = function(msg, src, l, c, err) {
+      /* Numeric exceptions are Emscripten/Asyncify internals — not real errors */
+      if (typeof err === 'number' || /^\d+$/.test(msg)) return;
       statusEl.textContent = 'Error: ' + msg;
       console.error('[xmoto] Fatal:', msg, err);
     };
