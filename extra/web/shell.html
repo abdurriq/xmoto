@@ -48,12 +48,31 @@
       background: #900; color: #fff; font-size: 0.8rem;
       padding: 4px 8px; display: none;
     }
+
+    /* Quit overlay — shown when the game exits cleanly */
+    #quit-overlay {
+      display: none; position: absolute; inset: 0;
+      background: rgba(0,0,0,0.88);
+      flex-direction: column; align-items: center; justify-content: center;
+      color: #eee; gap: 1.4rem; z-index: 20;
+    }
+    #quit-overlay h2 { font-size: 1.8rem; }
+    #quit-overlay button {
+      padding: 0.6rem 2rem; font-size: 1rem;
+      background: #5af; border: none; border-radius: 6px;
+      color: #000; cursor: pointer;
+    }
+    #quit-overlay button:hover { background: #7cf; }
   </style>
 </head>
 <body>
   <div id="canvas-wrap">
     <canvas id="canvas" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
     <button id="fs-btn" title="Toggle fullscreen (F11)">&#x26F6;</button>
+    <div id="quit-overlay">
+      <h2>Thanks for playing!</h2>
+      <button onclick="location.reload()">Play Again</button>
+    </div>
     <div id="loading">
       <h1>X-Moto</h1>
       <div id="loading-status">Loading…</div>
@@ -124,6 +143,11 @@
         bar.style.width = '100%';
         canvas.focus();
         console.log('[xmoto] Runtime ready.');
+
+        /* Called by C++ (EM_ASM) when the game exits via the Quit menu. */
+        Module.onGameQuit = function() {
+          document.getElementById('quit-overlay').style.display = 'flex';
+        };
 
         /* ---- Persistent storage: keep IDBFS synced to IndexedDB ----
            syncfs(false,...) flushes in-memory writes → IndexedDB.

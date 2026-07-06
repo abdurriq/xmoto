@@ -956,7 +956,11 @@ void GameApp::run_loop() {
         emscripten_cancel_main_loop();
         /* Only call run_unload once; after that the app is invalid. */
         static bool s_unloaded = false;
-        if (!s_unloaded) { s_unloaded = true; app->run_unload(); }
+        if (!s_unloaded) {
+          s_unloaded = true;
+          try { app->run_unload(); } catch (...) {}
+          EM_ASM({ if (Module.onGameQuit) Module.onGameQuit(); });
+        }
         return;
       }
       try {
@@ -974,7 +978,11 @@ void GameApp::run_loop() {
       if (app->m_bQuit) {
         emscripten_cancel_main_loop();
         static bool s_unloaded2 = false;
-        if (!s_unloaded2) { s_unloaded2 = true; app->run_unload(); }
+        if (!s_unloaded2) {
+          s_unloaded2 = true;
+          try { app->run_unload(); } catch (...) {}
+          EM_ASM({ if (Module.onGameQuit) Module.onGameQuit(); });
+        }
       }
     },
     this,
