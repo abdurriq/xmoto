@@ -893,10 +893,11 @@ if(EMSCRIPTEN_BUILD)
     "-lidbfs.js"
   )
 
-  # Copy the Service Worker next to xmoto.html so it can control the same scope
-  add_custom_command(TARGET xmoto POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy
-      "${CMAKE_SOURCE_DIR}/extra/web/sw.js"
-      "${CMAKE_CURRENT_BINARY_DIR}/sw.js"
-    COMMENT "Copying sw.js to build output")
+  # Stamp sw.js with the build timestamp so each build gets a fresh SW cache
+  string(TIMESTAMP BUILD_TS "%Y%m%d%H%M%S")
+  configure_file(
+    "${CMAKE_SOURCE_DIR}/extra/web/sw.js"
+    "${CMAKE_CURRENT_BINARY_DIR}/sw.js"
+    @ONLY)
+  add_custom_target(sw_js ALL DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/sw.js")
 endif()

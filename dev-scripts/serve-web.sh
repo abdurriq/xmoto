@@ -31,6 +31,11 @@ import http.server, sys, os
 
 def _cc(path):
     ext = os.path.splitext(path)[1].lower()
+    base = os.path.basename(path)
+    # sw.js must never be cached long-term so browsers always fetch the latest
+    # Service Worker (which itself busts the asset cache on new builds).
+    if base == 'sw.js':
+        return 'no-cache'
     return 'public, max-age=86400' if ext in ('.wasm', '.data', '.js') else 'no-cache'
 
 def _etag(path):

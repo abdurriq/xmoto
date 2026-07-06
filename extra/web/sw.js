@@ -1,20 +1,50 @@
 /*
  * sw.js — X-Moto Service Worker
  *
- * Caches xmoto.wasm / xmoto.data / xmoto.js so that normal page refreshes
- * (including Firefox Ctrl+R) are served from the SW cache and never hit the
- * network for the large assets.
+ * CACHE_NAME is stamped with the build timestamp at CMake configure time so
+ * each new build gets a fresh cache.  The activate handler deletes all older
+ * caches, forcing new assets to be downloaded exactly once per build.
  *
- * Strategy: stale-while-revalidate
- *   – Return cached asset immediately (fast start)
- *   – Fetch fresh copy from server in the background and update cache
- *   – Next load picks up any new version automatically
- *
- * Hard refresh (Ctrl+Shift+R / Shift+F5) bypasses the SW entirely, so that
- * always picks up a freshly rebuilt version.
+ * Ctrl+Shift+R (hard refresh) bypasses the SW entirely for explicit busts.
  */
 
-const CACHE = 'xmoto-assets-v1';
+const CACHE = 'xmoto-@BUILD_TS@';
+
+function isCacheable(url) {
+  const p = new URL(url).pathname;
+  /* Cache the large wasm/data/js artefacts; NOT sw.js itself */
+  return (p.endsWith('.wasm') || p.endsWith('.data')) ||
+         (p.endsWith('.js') && !p.endsWith('sw.js'));
+}
+
+self.addEventListener('install', () => self.skipWaiting());
+
+self.addEventListener('activate', evt =>
+  evt.waitUntil(
+    /* Purge caches from previous builds, then claim clients immediately */
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
+  )
+);
+
+self.addEventListener('fetch', evt => {
+  if (!isCacheable(evt.request.url)) return;
+
+  evt.respondWith(
+    caches.open(CACHE).then(async cache => {
+      const cached = await cache.match(evt.request);
+
+      /* Always fetch fresh in background (stale-while-revalidate) */
+      const update = fetch(evt.request.clone())
+        .then(res => { if (res.ok) cache.put(evt.request, res.clone()); return res; })
+        .catch(() => null);
+
+      return cached ?? update;
+    })
+  );
+});
+
 
 function isCacheable(url) {
   const p = new URL(url).pathname;
