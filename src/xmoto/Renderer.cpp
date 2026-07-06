@@ -2395,13 +2395,16 @@ void GameRenderer::_RenderBlockEdges(Block *pBlock) {
   } else if (pDrawlib->getBackend() == DrawLib::backend_SdlGFX) {
     for (unsigned int i = 0; i < pBlock->getEdgeGeoms().size(); i++) {
       TColor c = pBlock->getEdgeGeoms()[i]->edgeBlendColor;
+      pDrawlib->setTexture(pBlock->getEdgeGeoms()[i]->pTexture, BLEND_MODE_A);
       pDrawlib->setColorRGBA(c.Red(), c.Green(), c.Blue(), c.Alpha());
 
       for (unsigned int j = 0; j < pBlock->getEdgeGeoms()[i]->Polys.size(); j++) {
         GeomPoly *pPoly = pBlock->getEdgeGeoms()[i]->Polys[j];
-        pDrawlib->setTexture(pBlock->getEdgeGeoms()[i]->pTexture, BLEND_MODE_A);
 
-        /* Edge geoms pack quads as 4 consecutive vertices each */
+        /* Edge geoms pack quads as 4 consecutive vertices each.
+           Use endDrawKeepProperties() so texture/blend are not reset
+           between quads — endDraw() would set m_texture=nullptr causing
+           every quad after the first to render white. */
         for (unsigned int k = 0; k + 3 < pPoly->nNumVertices; k += 4) {
           pDrawlib->startDraw(DRAW_MODE_POLYGON);
           for (unsigned int v = 0; v < 4; v++) {
@@ -2410,9 +2413,10 @@ void GameRenderer::_RenderBlockEdges(Block *pBlock) {
             pDrawlib->glVertex(pPoly->pVertices[k + v].x,
                                pPoly->pVertices[k + v].y);
           }
-          pDrawlib->endDraw();
+          pDrawlib->endDrawKeepProperties();
         }
       }
+      pDrawlib->removePropertiesAfterEnd();
     }
   }
 }
