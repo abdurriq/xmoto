@@ -1,14 +1,48 @@
 /*
- * sw.js — X-Moto Service Worker
+ * sw.js — X-Moto Service Worker  (build @BUILD_TS@)
  *
- * CACHE_NAME is stamped with the build timestamp at CMake configure time so
- * each new build gets a fresh cache.  The activate handler deletes all older
- * caches, forcing new assets to be downloaded exactly once per build.
+ * Purpose: override the `cache: 'no-cache'` mode that Chrome/Firefox inject
+ * during Ctrl+R so that the HTTP cache (max-age=86400 + ETag) is consulted
+ * instead of forcing a 115 MB re-download every reload.
  *
- * Ctrl+Shift+R (hard refresh) bypasses the SW entirely for explicit busts.
+ * Strategy: pure network passthrough with `cache: 'default'`.
+ *   – No assets are stored in the SW cache (eliminates version-mismatch bugs).
+ *   – HTTP cache (served by the dev server) handles all caching.
+ *   – Ctrl+Shift+R bypasses the SW entirely — use it to force a fresh build.
  */
 
-const CACHE = 'xmoto-@BUILD_TS@';
+function isCacheable(url) {
+  const p = new URL(url).pathname;
+  return (p.endsWith('.wasm') || p.endsWith('.data')) ||
+         (p.endsWith('.js') && !p.endsWith('sw.js'));
+}
+
+self.addEventListener('install', () => self.skipWaiting());
+
+self.addEventListener('activate', evt =>
+  /* Purge any old SW caches from the previous stale-while-revalidate strategy */
+  evt.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(keys.map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
+  )
+);
+
+self.addEventListener('fetch', evt => {
+  if (!isCacheable(evt.request.url)) return; /* pass through unchanged */
+
+  /* Re-issue the request with cache:'default' so the browser's HTTP cache
+     (max-age + ETag) is used even when the page reload adds 'no-cache'.
+     All three files (.wasm / .data / .js) then come from the same HTTP-cache
+     generation, preventing offset mismatches that corrupt texture loading. */
+  evt.respondWith(
+    fetch(new Request(evt.request.url, {
+      cache:       'default',
+      credentials: evt.request.credentials,
+    }))
+  );
+});
+
 
 function isCacheable(url) {
   const p = new URL(url).pathname;
