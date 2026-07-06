@@ -218,6 +218,24 @@ Texture *TextureManager::createTexture(const std::string &Name,
                  pcData);
   }
 
+#ifdef __EMSCRIPTEN__
+  {
+    const char *fmt = bAlpha ? "RGBA" : "RGB";
+    if (N == 0) {
+      LogWarning("[tex] glGenTextures returned 0 for '%s'", Name.c_str());
+    } else {
+      GLenum glerr = glGetError();
+      if (glerr != GL_NO_ERROR) {
+        LogWarning("[tex] glTexImage2D error 0x%04x for '%s' %dx%d %s",
+                   (unsigned)glerr, Name.c_str(), nWidth, nHeight, fmt);
+      } else {
+        LogInfo("[tex] ok '%s' %dx%d %s id=%u",
+                Name.c_str(), nWidth, nHeight, fmt, (unsigned)N);
+      }
+    }
+  }
+#endif
+
   glDisable(GL_TEXTURE_2D);
 
   pTexture->nID = N;
