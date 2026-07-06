@@ -194,6 +194,14 @@ public:
   virtual void setRotateZ(float i_angle) = 0;
   virtual void setLineWidth(float width) = 0;
 
+  /* Matrix helpers for overlay rendering (used by _RenderInGameText).     *
+   * getMVP: copy the current 4x4 column-major MVP matrix into out16.      *
+   * push/popTransform: save/restore the full projection+model state so     *
+   * a temporary setCameraDimensionality(CAMERA_2D) can be undone.          */
+  virtual void getMVP(float * /*out16*/) const {}
+  virtual void pushTransform() {}
+  virtual void popTransform() {}
+
   /**
    * returns the current screen clipping
    **/

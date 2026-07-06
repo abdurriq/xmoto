@@ -42,6 +42,9 @@ public:
   virtual void setMirrorY() override;
   virtual void setRotateZ(float i_angle) override;
   virtual void setLineWidth(float width) override;
+  virtual void getMVP(float *out16) const override;
+  virtual void pushTransform() override;
+  virtual void popTransform() override;
 
   virtual void getClipRect(int *o_px, int *o_py,
                            int *o_pnWidth, int *o_pnHeight) override;
@@ -80,6 +83,8 @@ private:
   float m_proj[16];
   float m_model[16];
   float m_mvp[16];
+  float m_saved_proj[16];   /* scratch save slot for pushTransform() */
+  float m_saved_model[16];
   void  _recompute_mvp();
 
   /* current draw state */

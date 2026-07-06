@@ -2851,7 +2851,24 @@ void GameRenderer::_RenderInGameText(Vector2f P,
                                      float i_xcentering,
                                      float i_ycentering) {
   DrawLib *pDrawlib = GameApp::instance()->getDrawLib();
-#ifdef ENABLE_OPENGL
+
+  float x, y;
+
+#ifdef __EMSCRIPTEN__
+  /* GLES2: project world point through our stored MVP matrix.
+     glGetFloatv(GL_MODELVIEW_MATRIX) is invalid in WebGL2. */
+  {
+    float mvp[16];
+    pDrawlib->getMVP(mvp);
+    /* MVP is column-major: result[row] = sum_col mvp[col*4+row] * v[col] */
+    float nx = mvp[0]*P.x + mvp[4]*P.y + mvp[12];
+    float ny = mvp[1]*P.x + mvp[5]*P.y + mvp[13];
+    float nw = mvp[3]*P.x + mvp[7]*P.y + mvp[15];
+    if (nw == 0.f) return;
+    x = (nx / nw + 1.f) * 0.5f;
+    y = 1.f - (ny / nw + 1.f) * 0.5f;
+  }
+#elif defined(ENABLE_OPENGL)
   // keesj:todo i have no idea what is actualy going on here
   /* Perform manual transformation of world coordinates into screen
      coordinates */
@@ -2869,19 +2886,23 @@ void GameRenderer::_RenderInGameText(Vector2f P,
 
   MULT_GL_MATRIX(fPoint, fTemp, fModelView);
   MULT_GL_MATRIX(fTemp, fPoint, fProj);
-  float x = (fPoint[0] / fPoint[3] + 1.0f) / 2.0f;
-  float y = 1.0f - (fPoint[1] / fPoint[3] + 1.0f) / 2.0f;
+  x = (fPoint[0] / fPoint[3] + 1.0f) / 2.0f;
+  y = 1.0f - (fPoint[1] / fPoint[3] + 1.0f) / 2.0f;
 #else
   // keesj:TODO: I really have no clue what this function is about
-  float x = (P.x / 1.0f + 1.0f) / 2.0f;
-  float y = 1.0f - (P.y / 1.0f + 1.0f) / 2.0f;
+  x = (P.x / 1.0f + 1.0f) / 2.0f;
+  y = 1.0f - (P.y / 1.0f + 1.0f) / 2.0f;
 #endif
 
   if (x > 0.0f && x < 1.0f && y > 0.0f && y < 1.0f) {
     /* Map to viewport */
     float vx = ((float)m_screen.getDispWidth() * x);
     float vy = ((float)m_screen.getDispHeight() * y);
-#ifdef ENABLE_OPENGL
+#ifdef __EMSCRIPTEN__
+    /* Switch to screen-pixel projection, render text, restore world projection */
+    pDrawlib->pushTransform();
+    pDrawlib->setCameraDimensionality(CAMERA_2D);
+#elif defined(ENABLE_OPENGL)
     glMatrixMode(GL_PROJECTION);
     glPushMatrix();
     glLoadIdentity();
@@ -2906,7 +2927,9 @@ void GameRenderer::_RenderInGameText(Vector2f P,
                       0.0,
                       true);
 
-#ifdef ENABLE_OPENGL
+#ifdef __EMSCRIPTEN__
+    pDrawlib->popTransform();
+#elif defined(ENABLE_OPENGL)
     glPopMatrix();
     glMatrixMode(GL_PROJECTION);
     glPopMatrix();

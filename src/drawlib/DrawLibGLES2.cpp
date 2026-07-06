@@ -672,6 +672,23 @@ void DrawLibGLES2::setLineWidth(float) {
   glLineWidth(1.f); /* WebGL2 only supports width=1 */
 }
 
+void DrawLibGLES2::getMVP(float *out16) const {
+  memcpy(out16, m_mvp, 16 * sizeof(float));
+}
+
+void DrawLibGLES2::pushTransform() {
+  _flush_batch();
+  memcpy(m_saved_proj,  m_proj,  16 * sizeof(float));
+  memcpy(m_saved_model, m_model, 16 * sizeof(float));
+}
+
+void DrawLibGLES2::popTransform() {
+  _flush_batch();
+  memcpy(m_proj,  m_saved_proj,  16 * sizeof(float));
+  memcpy(m_model, m_saved_model, 16 * sizeof(float));
+  _recompute_mvp();
+}
+
 void DrawLibGLES2::setCameraDimensionality(CameraDimension dim) {
   _flush_batch();
   /* Guard: m_renderSurf is null before setRenderSurface() is first called.
