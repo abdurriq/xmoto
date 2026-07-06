@@ -958,7 +958,15 @@ void GameApp::run_loop() {
         static bool s_unloaded = false;
         if (!s_unloaded) {
           s_unloaded = true;
+#ifdef __EMSCRIPTEN__
+          /* Full teardown (run_unload) triggers abort() on WASM — skip it.
+             Just persist user data and show the quit overlay; the page
+             reload button handles all resource cleanup. */
+          xmoto_save_config();
+          webfs_persist();
+#else
           try { app->run_unload(); } catch (...) {}
+#endif
           EM_ASM({ if (Module.onGameQuit) Module.onGameQuit(); });
         }
         return;
@@ -980,7 +988,12 @@ void GameApp::run_loop() {
         static bool s_unloaded2 = false;
         if (!s_unloaded2) {
           s_unloaded2 = true;
+#ifdef __EMSCRIPTEN__
+          xmoto_save_config();
+          webfs_persist();
+#else
           try { app->run_unload(); } catch (...) {}
+#endif
           EM_ASM({ if (Module.onGameQuit) Module.onGameQuit(); });
         }
       }
@@ -1061,6 +1074,10 @@ void GameApp::run_one_frame() {
 
     // update game
     StateManager::instance()->update();
+
+    /* Don't render if quit was requested this frame — the state machine
+       may already be in an inconsistent state after requestEnd(). */
+    if (m_bQuit) return;
 
     // update graphics
     // skip rendering if too much late (network mode)
