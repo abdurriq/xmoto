@@ -222,14 +222,14 @@ Texture *TextureManager::createTexture(const std::string &Name,
   {
     const char *fmt = bAlpha ? "RGBA" : "RGB";
     if (N == 0) {
-      LogWarning("[tex] glGenTextures returned 0 for '%s'", Name.c_str());
+      fprintf(stderr, "[tex] glGenTextures returned 0 for '%s'\n", Name.c_str());
     } else {
       GLenum glerr = glGetError();
       if (glerr != GL_NO_ERROR) {
-        LogWarning("[tex] glTexImage2D error 0x%04x for '%s' %dx%d %s",
-                   (unsigned)glerr, Name.c_str(), nWidth, nHeight, fmt);
+        fprintf(stderr, "[tex] glTexImage2D error 0x%04x for '%s' %dx%d %s\n",
+                (unsigned)glerr, Name.c_str(), nWidth, nHeight, fmt);
       } else {
-        LogInfo("[tex] ok '%s' %dx%d %s id=%u",
+        fprintf(stderr, "[tex] ok '%s' %dx%d %s id=%u\n",
                 Name.c_str(), nWidth, nHeight, fmt, (unsigned)N);
       }
     }

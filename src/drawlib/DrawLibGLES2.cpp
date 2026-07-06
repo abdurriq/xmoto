@@ -502,8 +502,8 @@ void DrawLibGLES2::_flush_batch() {
 
   if (m_texture) {
     if (m_texture->nID == 0) {
-      LogWarning("[tex] _flush_batch: texture '%s' has nID=0, will render white",
-                 m_texture->Name.c_str());
+      fprintf(stderr, "[tex] flush: nID=0 for '%s' — will render white\n",
+              m_texture->Name.c_str());
     }
     glBindTexture(GL_TEXTURE_2D, m_texture->nID);
     glUniform1i(m_loc_use_tex, 1);
