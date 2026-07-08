@@ -470,6 +470,18 @@ void DrawLibGLES2::init(unsigned int nW, unsigned int nH, bool windowed) {
   m_fontBig      = getFontManager(XMFS::FullPath(FDT_DATA, FontManager::getDrawFontFile()), 60);
   m_fontMonospace= getFontManager(XMFS::FullPath(FDT_DATA, FontManager::getMonospaceFontFile()), 12, 7);
 
+  /* FBO ghost-trail overlay: disabled on emscripten.
+   * SFXOverlay::beginRendering() changes the GL viewport to 512x512 but
+   * does not update the GLES2 camera matrices, so the ghost is rendered
+   * at the wrong NDC→pixel mapping (offset and wrong size in the FBO).
+   * SFXOverlay::fade() uses glVertex2f (a no-op in GLES2) so the FBO
+   * content never fades → ghost accumulates frame-over-frame.
+   * Keeping FBO disabled makes the ghost render directly each frame
+   * (correct position/size) with a semi-transparent colour filter.
+   * TODO: implement a proper GLES2 fade+present using pushTransform /
+   * setCameraDimensionality(CAMERA_2D) / glVertexSP when time allows. */
+  m_bFBOSupported = false;
+
   LogInfo("DrawLibGLES2: WebGL2 context created (%ux%u)", nW, nH);
 }
 

@@ -2958,7 +2958,16 @@ void GameRenderer::_RenderAlphaBlendedSection(Texture *pTexture,
     p0,
     pTexture,
     MAKE_COLOR(
-      i_filterColor.Red(), i_filterColor.Green(), i_filterColor.Blue(), 255));
+      i_filterColor.Red(),
+      i_filterColor.Green(),
+      i_filterColor.Blue(),
+#ifdef __EMSCRIPTEN__
+      /* No FBO ghost-blur on GLES2: use 50% alpha so ghosts look translucent */
+      150
+#else
+      255
+#endif
+    ));
 }
 
 void GameRenderer::_RenderAdditiveBlendedSection(Texture *pTexture,
