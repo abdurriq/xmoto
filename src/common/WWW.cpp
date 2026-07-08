@@ -26,7 +26,94 @@
 
 #define DEFAULT_WWW_MSGFILE(A) "wwwMsg" A ".xml"
 
+/* EM_DLCB: progress callback for download calls.
+   nullptr on emscripten (XHR downloader ignores it), real curl fn on desktop. */
 #if ENABLE_WWW
+#  ifdef __EMSCRIPTEN__
+#    define EM_DLCB nullptr
+#  else
+#    define EM_DLCB FSWeb::f_curl_progress_callback_download
+#  endif
+#endif
+
+/* =========================================================================
+   Emscripten / browser download implementation — uses synchronous XHR via
+   a /xm-proxy/?url= endpoint on the dev server (adds CORS headers).
+   ========================================================================= */
+#if ENABLE_WWW && defined(__EMSCRIPTEN__)
+#include <emscripten.h>
+
+void FSWeb::downloadFile(const std::string &p_local_file,
+                         const std::string &p_web_file,
+                         ProgressCallback /*progressCallback*/,
+                         void * /*p_data*/,
+                         const ProxySettings * /*p_proxy_settings*/) {
+  std::string v_tmp = p_local_file + ".part";
+
+  LogInfo(("downloading " + p_web_file + " -> " + p_local_file).c_str());
+
+  int status = EM_ASM_INT({
+    var webUrl  = UTF8ToString($0);
+    var dstPath = UTF8ToString($1);
+    /* /xm-proxy/ on dev server proxies the request server-side (no CORS). */
+    var proxyUrl = window.location.origin +
+                   '/xm-proxy/?url=' + encodeURIComponent(webUrl);
+    function tryFetch(url) {
+      try {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', url, false);   /* synchronous */
+        xhr.responseType = 'arraybuffer';
+        xhr.send(null);
+        if (xhr.status >= 200 && xhr.status < 300) {
+          FS.writeFile(dstPath, new Uint8Array(xhr.response));
+          return 0;
+        }
+        return xhr.status || 400;
+      } catch (e) { return -1; }
+    }
+    var r = tryFetch(proxyUrl);
+    if (r !== 0) { r = tryFetch(webUrl); } /* direct CORS fallback */
+    return r;
+  }, p_web_file.c_str(), v_tmp.c_str());
+
+  if (status != 0) {
+    remove(v_tmp.c_str());
+    char buf[512];
+    snprintf(buf, sizeof(buf),
+             "download failed: %s (HTTP %d)", p_web_file.c_str(), status);
+    throw Exception(buf);
+  }
+  remove(p_local_file.c_str());
+  if (rename(v_tmp.c_str(), p_local_file.c_str()) != 0) {
+    remove(v_tmp.c_str());
+    throw Exception("unable to write " + p_local_file);
+  }
+}
+
+void FSWeb::uploadReplay(const std::string&, const std::string&, const std::string&,
+                         const std::string&, const std::string&, WWWAppInterface*,
+                         const ProxySettings*, bool &status, std::string &msg) {
+  status = false; msg = "Upload not supported in browser build";
+}
+void FSWeb::sendVote(const std::string&, const std::string&, const std::string&, bool,
+                     const std::string&, const std::string&, const std::string&,
+                     WWWAppInterface*, const ProxySettings*, bool &status, std::string &msg) {
+  status = false; msg = "Vote not supported in browser build";
+}
+void FSWeb::sendReport(const std::string&, const std::string&, const std::string&,
+                       WWWAppInterface*, const ProxySettings*, bool &status, std::string &msg) {
+  status = false; msg = "Report not supported in browser build";
+}
+void FSWeb::uploadDbSync(const std::string&, const std::string&, const std::string&,
+                         const std::string&, int, const std::string&,
+                         WWWAppInterface*, const ProxySettings*, bool &status,
+                         std::string &msg, const std::string&) {
+  status = false; msg = "DB sync not supported in browser build";
+}
+#endif /* ENABLE_WWW && __EMSCRIPTEN__ */
+
+#if ENABLE_WWW
+#ifndef __EMSCRIPTEN__  /* libcurl-specific implementations */
 
 HTTPForm::HTTPForm(CURL *curl) {
   m_curl = curl;
@@ -87,6 +174,7 @@ void HTTPForm::addData(const std::string &name, const std::string &data) {
 void HTTPForm::addFile(const std::string &name, const std::string &filename) {
   return add(name, filename, true);
 }
+#endif /* !__EMSCRIPTEN__ */
 
 bool WebRoom::downloadReplayExists(const std::string &i_url) {
   std::string i_rplFilename =
@@ -108,7 +196,7 @@ void WebRoom::downloadReplay(const std::string &i_url) {
 
   FSWeb::downloadFile(i_rplFilename,
                       i_url,
-                      FSWeb::f_curl_progress_callback_download,
+                      EM_DLCB,
                       &v_data,
                       m_proxy_settings);
 }
@@ -143,7 +231,7 @@ void WebRoom::update(const std::string &i_id_room) {
 
   FSWeb::downloadFileBz2UsingMd5(m_userFilename_prefix + i_id_room + ".xml",
                                  m_webhighscores_url,
-                                 FSWeb::f_curl_progress_callback_download,
+                                 EM_DLCB,
                                  &v_data,
                                  m_proxy_settings);
 }
@@ -153,9 +241,11 @@ void WebRoom::upgrade(const std::string &i_id_room, xmDatabase *i_db) {
     FDT_CACHE, m_userFilename_prefix + i_id_room + ".xml", m_webhighscores_url);
 }
 
+#ifndef __EMSCRIPTEN__ /* writeData: used only by curl downloadFile below */
 size_t FSWeb::writeData(void *ptr, size_t size, size_t nmemb, FILE *stream) {
   return fwrite(ptr, size, nmemb, stream);
 }
+#endif /* !__EMSCRIPTEN__ */
 
 void FSWeb::downloadFileBz2(const std::string &p_local_file,
                             const std::string &p_web_file,
@@ -215,6 +305,8 @@ void FSWeb::downloadFileBz2UsingMd5(const std::string &p_local_file,
       p_local_file, p_web_file, progressCallback, p_data, p_proxy_settings);
   }
 }
+
+#ifndef __EMSCRIPTEN__ /* curl-specific FSWeb implementations */
 
 void FSWeb::downloadFile(const std::string &p_local_file,
                          const std::string &p_web_file,
@@ -771,6 +863,7 @@ void FSWeb::uploadDbSync(const std::string &p_dbSyncFilename,
       "xmoto_uploadDbSyncResult", p_answerFile, p_msg_status, p_msg);
   }
 }
+#endif /* !__EMSCRIPTEN__ — end of curl-specific FSWeb implementations */
 
 WebLevels::WebLevels(WWWAppInterface *p_WebLevelApp) {
   m_WebLevelApp = p_WebLevelApp;
@@ -799,7 +892,7 @@ void WebLevels::downloadXml() {
 
   FSWeb::downloadFileBz2UsingMd5(getXmlFileName(),
                                  m_levels_url,
-                                 FSWeb::f_curl_progress_callback_download,
+                                 EM_DLCB,
                                  &v_data,
                                  m_proxy_settings);
 }
@@ -826,6 +919,7 @@ void WebLevels::update(xmDatabase *i_db) {
   i_db->weblevels_updateDB(FDT_CACHE, getXmlFileName());
 }
 
+#ifndef __EMSCRIPTEN__ /* curl progress callbacks */
 int FSWeb::f_curl_progress_callback_upload(void *clientp,
                                            curl_off_t dltotal,
                                            curl_off_t dlnow,
@@ -885,6 +979,7 @@ int FSWeb::f_curl_progress_callback_download(void *clientp,
 
   return 0;
 }
+#endif /* !__EMSCRIPTEN__ — curl progress callbacks */
 
 int WebLevels::nbLevelsToGet(xmDatabase *i_db) const {
   return i_db->levels_nbLevelsToDownload();
@@ -974,7 +1069,7 @@ void WebLevels::upgrade(xmDatabase *i_db, int i_nb_levels) {
 
         FSWeb::downloadFileBz2(v_destFile,
                                v_urlFile,
-                               FSWeb::f_curl_progress_callback_download,
+                               EM_DLCB,
                                &v_data,
                                m_proxy_settings);
 
@@ -1086,7 +1181,7 @@ void WebThemes::updateTheme(xmDatabase *i_pDb,
     v_destinationFileXML_tmp = v_destinationFileXML + ".tmp";
     FSWeb::downloadFileBz2(v_destinationFileXML_tmp,
                            v_fileUrl,
-                           FSWeb::f_curl_progress_callback_download,
+                           EM_DLCB,
                            &v_data,
                            XMSession::instance()->proxySettings());
 
@@ -1179,7 +1274,7 @@ void WebThemes::updateTheme(xmDatabase *i_pDb,
 
           FSWeb::downloadFile(v_destinationFile,
                               v_sourceFile,
-                              FSWeb::f_curl_progress_callback_download,
+                              EM_DLCB,
                               &v_data,
                               XMSession::instance()->proxySettings());
 
@@ -1253,7 +1348,7 @@ void WebThemes::updateThemeList(xmDatabase *i_pDb,
   v_data.v_nb_files_to_download = 1;
   FSWeb::downloadFileBz2UsingMd5(v_destinationFile,
                                  XMSession::instance()->webThemesURL(),
-                                 FSWeb::f_curl_progress_callback_download,
+                                 EM_DLCB,
                                  &v_data,
                                  XMSession::instance()->proxySettings());
   i_pDb->webthemes_updateDB(FDT_CACHE, v_destinationFile);

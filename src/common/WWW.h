@@ -25,7 +25,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 #include "BuildConfig.h"
 
-#if ENABLE_WWW
+#if ENABLE_WWW && !defined(__EMSCRIPTEN__)
 #include <curl/curl.h>
 #endif
 #include <stdio.h>
@@ -66,7 +66,7 @@ class xmDatabase;
 
 #define WWW_AGENT ("xmoto-" + XMBuild::getVersionString(true))
 
-#if ENABLE_WWW
+#if ENABLE_WWW && !defined(__EMSCRIPTEN__)
 
 #if CURL_AT_LEAST_VERSION(7, 56, 0)
 #define USE_CURL_MIME_API 1
@@ -104,7 +104,7 @@ private:
 #endif
 };
 
-#endif /* ENABLE_WWW */
+#endif /* ENABLE_WWW && !__EMSCRIPTEN__ */
 
 struct f_curl_download_data {
   WWWAppInterface *v_WebApp;
@@ -118,11 +118,16 @@ struct f_curl_upload_data {
 
 #if ENABLE_WWW
 
+#ifndef __EMSCRIPTEN__
 using ProgressCallback = int (*)(void *clientp,
                                  curl_off_t dltotal,
                                  curl_off_t dlnow,
                                  curl_off_t ultotal,
                                  curl_off_t ulnow);
+#else
+/* On emscripten, progress callbacks are not used by the XHR downloader */
+using ProgressCallback = void *;
+#endif
 
 class FSWeb {
 public:
@@ -186,17 +191,18 @@ public:
                          bool &p_msg_status,
                          std::string &p_msg);
 
-  static int f_curl_progress_callback_upload(void *clientp,
-                                             curl_off_t dltotal,
-                                             curl_off_t dlnow,
-                                             curl_off_t ultotal,
-                                             curl_off_t ulnow);
-
+#ifndef __EMSCRIPTEN__
   static int f_curl_progress_callback_download(void *clientp,
                                                curl_off_t dltotal,
                                                curl_off_t dlnow,
                                                curl_off_t ultotal,
                                                curl_off_t ulnow);
+
+  static int f_curl_progress_callback_upload(void *clientp,
+                                             curl_off_t dltotal,
+                                             curl_off_t dlnow,
+                                             curl_off_t ultotal,
+                                             curl_off_t ulnow);
 
 private:
   static size_t writeData(void *ptr, size_t size, size_t nmemb, FILE *stream);
@@ -211,6 +217,7 @@ private:
                                   FILE *p_destinationFile,
                                   WWWAppInterface *p_WebApp,
                                   const ProxySettings *p_proxy_settings);
+#endif /* !__EMSCRIPTEN__ */
 }; // end of FSWeb
 
 #endif /* ENABLE_WWW */

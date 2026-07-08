@@ -25,7 +25,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "helpers/VMath.h"
 #include "xmoto/UserConfig.h"
 #include "xmoto/VideoRecorder.h"
-#if ENABLE_WWW
+#if ENABLE_WWW && !defined(__EMSCRIPTEN__)
 #  include <curl/curl.h>
 #else
 /* Stub proxy-type constants so ProxySettings compiles without libcurl */

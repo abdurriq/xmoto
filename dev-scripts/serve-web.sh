@@ -27,13 +27,11 @@ echo "Press Ctrl-C to stop."
 cd "$BUILD_DIR"
 
 python3 - "$PORT" <<'PYEOF'
-import http.server, sys, os
+import http.server, sys, os, urllib.request, urllib.parse
 
 def _cc(path):
     ext = os.path.splitext(path)[1].lower()
     base = os.path.basename(path)
-    # sw.js must never be cached long-term so browsers always fetch the latest
-    # Service Worker (which itself busts the asset cache on new builds).
     if base == 'sw.js':
         return 'no-cache'
     return 'public, max-age=86400' if ext in ('.wasm', '.data', '.js') else 'no-cache'
@@ -46,10 +44,45 @@ def _etag(path):
         return None
 
 class XMHandler(http.server.SimpleHTTPRequestHandler):
+    def do_GET(self):
+        # CORS proxy: /xm-proxy/?url=<encoded>  — forwards request server-side
+        if self.path.startswith('/xm-proxy/'):
+            qs = urllib.parse.urlparse(self.path).query
+            params = urllib.parse.parse_qs(qs)
+            url = params.get('url', [''])[0]
+            if not url:
+                self.send_error(400, 'Missing url parameter')
+                return
+            try:
+                req = urllib.request.Request(url, headers={
+                    'User-Agent': 'xmoto-web/1.0'})
+                with urllib.request.urlopen(req, timeout=30) as resp:
+                    data = resp.read()
+                self.send_response(200)
+                self.send_header('Content-Type',
+                                 resp.headers.get('Content-Type',
+                                                  'application/octet-stream'))
+                self.send_header('Content-Length', str(len(data)))
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(data)
+            except Exception as e:
+                self.send_error(502, f'Proxy error: {e}')
+            return
+
+        path = self.translate_path(self.path)
+        etag = _etag(path)
+        if etag and self.headers.get('If-None-Match') == etag:
+            self.send_response(304)
+            self.send_header('ETag', etag)
+            self.send_header('Cache-Control', _cc(path))
+            http.server.BaseHTTPRequestHandler.end_headers(self)
+            return
+        super().do_GET()
+
     def send_head(self):
         path = self.translate_path(self.path)
         etag = _etag(path)
-        # Return 304 if client already has this exact version (ETag match)
         if etag and self.headers.get('If-None-Match') == etag:
             self.send_response(304)
             self.send_header('ETag', etag)

@@ -16,7 +16,8 @@ option(ENABLE_SERVER    "Enable standalone server mode" ON)
 
 if(EMSCRIPTEN_BUILD)
   set(ENABLE_NETWORK   OFF CACHE BOOL "" FORCE)
-  set(ENABLE_WWW       OFF CACHE BOOL "" FORCE)
+  # WWW (level/highscore downloads) enabled via JS XHR instead of curl
+  set(ENABLE_WWW       ON  CACHE BOOL "" FORCE)
   set(ENABLE_THREADING OFF CACHE BOOL "" FORCE)
   set(ENABLE_SERVER    OFF CACHE BOOL "" FORCE)
   set(USE_GETTEXT      OFF CACHE BOOL "" FORCE)
@@ -78,7 +79,7 @@ find_package(PkgConfig)
 find_package(BZip2)
 set(USE_SYSTEM_BZip2 $<AND:$<BOOL:${PREFER_SYSTEM_BZip2}>,$<BOOL:${BZIP2_FOUND}>,$<NOT:$<BOOL:${WIN32}>>>)
 
-if(ENABLE_WWW)
+if(ENABLE_WWW AND NOT EMSCRIPTEN_BUILD)
   find_package(CURL REQUIRED)
 endif()
 if(USE_GETTEXT)
