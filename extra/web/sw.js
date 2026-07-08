@@ -29,7 +29,13 @@ self.addEventListener('fetch', evt => {
   if (!p.endsWith('.data') && !isJs) return;
   evt.respondWith(
     fetch(new Request(evt.request.url, {
-      cache:       'default',
+      /* force-cache: serve from HTTP cache regardless of the browser's
+         reload flag.  Firefox Ctrl+R propagates cache:'no-cache' to
+         all fetches; this override ensures the 115 MB .data file and
+         .js are never re-downloaded on a soft refresh.
+         Only Ctrl+Shift+R (hard refresh) bypasses the SW entirely and
+         forces a fresh download from the server.                       */
+      cache:       'force-cache',
       credentials: evt.request.credentials,
     }))
   );
