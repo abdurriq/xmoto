@@ -249,7 +249,24 @@ void SFXOverlay::fade(float f, unsigned int i_frameNumber) {
     // visual effects
   }
 
-#ifdef ENABLE_OPENGL
+#ifdef __EMSCRIPTEN__
+  if (m_drawLib->useFBOs()) {
+    /* FBO is active (512x512 viewport). m_proj=identity (CAMERA_3D).
+       Reset m_model to identity so MVP=identity, then draw a full-viewport
+       black quad in NDC space (-1,-1) to (1,1) to darken the ghost trail. */
+    m_drawLib->pushTransform();
+    m_drawLib->resetGraphics();  /* m_model=identity; m_proj stays identity */
+    m_drawLib->setBlendMode(BLEND_MODE_A);
+    m_drawLib->startDraw(DRAW_MODE_POLYGON);
+    m_drawLib->setColorRGBA(0, 0, 0, (int)(f * 255));
+    m_drawLib->glVertex(-1.0f, -1.0f);
+    m_drawLib->glVertex( 1.0f, -1.0f);
+    m_drawLib->glVertex( 1.0f,  1.0f);
+    m_drawLib->glVertex(-1.0f,  1.0f);
+    m_drawLib->endDraw();
+    m_drawLib->popTransform();
+  }
+#elif defined(ENABLE_OPENGL)
   if (m_drawLib->useFBOs()) {
     glMatrixMode(GL_PROJECTION);
     glPushMatrix();
@@ -279,7 +296,32 @@ void SFXOverlay::fade(float f, unsigned int i_frameNumber) {
 }
 
 void SFXOverlay::present(void) {
-#ifdef ENABLE_OPENGL
+#ifdef __EMSCRIPTEN__
+  /* GLES2: route the FBO texture through the DrawLib API.
+     Wrap the FBO texture ID in a temporary Texture so setTexture() picks it
+     up; then render it full-screen in CAMERA_2D (pixel) space.
+     Coords (0,0)→(W,H) with ortho(0,W,0,H): y=0 is bottom → UV(0,0)=FBO
+     bottom-left and UV(1,1)=FBO top-right, both correct for GL convention. */
+  if (m_drawLib->useFBOs()) {
+    Texture fboTex = {};              /* zero-initialise all fields */
+    fboTex.nID = m_DynamicTextureID;
+
+    int W = m_screen->getDispWidth();
+    int H = m_screen->getDispHeight();
+
+    m_drawLib->pushTransform();
+    m_drawLib->setCameraDimensionality(CAMERA_2D);
+    m_drawLib->setTexture(&fboTex, BLEND_MODE_B);
+    m_drawLib->drawImageTextureSet(
+      Vector2f(0.0f,   0.0f),
+      Vector2f((float)W, 0.0f),
+      Vector2f((float)W, (float)H),
+      Vector2f(0.0f,   (float)H),
+      MAKE_COLOR(255, 255, 255, 255));
+    m_drawLib->setTexture(nullptr, BLEND_MODE_NONE);
+    m_drawLib->popTransform();
+  }
+#elif defined(ENABLE_OPENGL)
   if (m_drawLib->useFBOs()) {
     glMatrixMode(GL_PROJECTION);
     glPushMatrix();

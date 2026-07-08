@@ -2956,23 +2956,10 @@ void GameRenderer::_RenderAlphaBlendedSection(Texture *pTexture,
                                               const Vector2f &p3,
                                               const TColor &i_filterColor) {
   GameApp::instance()->getDrawLib()->drawImage(
-    p3,
-    p2,
-    p1,
-    p0,
+    p3, p2, p1, p0,
     pTexture,
     MAKE_COLOR(
-      i_filterColor.Red(),
-      i_filterColor.Green(),
-      i_filterColor.Blue(),
-#ifdef __EMSCRIPTEN__
-      /* Ghost bikes are rendered semi-transparent (no FBO fade on GLES2).
-         Player bike uses full opacity. */
-      m_renderingGhost ? 150 : 255
-#else
-      255
-#endif
-    ));
+      i_filterColor.Red(), i_filterColor.Green(), i_filterColor.Blue(), 255));
 }
 
 void GameRenderer::_RenderAdditiveBlendedSection(Texture *pTexture,
