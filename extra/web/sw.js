@@ -1,42 +1,54 @@
 /*
  * sw.js - X-Moto Service Worker  (build @BUILD_TS@)
  *
- * Prevents Ctrl+R from re-downloading the 115 MB .data file by overriding
- * cache:no-cache (injected by the browser on reload) with cache:default,
- * so the HTTP max-age/ETag cache is used instead.
+ * Caches xmoto.data and xmoto.js in the SW cache so that Firefox Ctrl+R
+ * (which propagates cache:no-cache to all sub-resource fetches, bypassing
+ * even explicit cache:'force-cache' in new Request() calls) cannot cause
+ * a re-download.  The SW cache is completely immune to browser reload flags.
  *
- * .wasm is NOT intercepted: WebAssembly.instantiateStreaming() requires the
- * browser to receive it directly. SW interception breaks streaming compile
- * and causes emscripten to fall back to ArrayBuffer (full re-download).
+ * On install: pre-cache xmoto.data + xmoto.js (uses HTTP cache if warm).
+ * On activate: delete old caches from previous builds.
+ * On fetch: serve .data/.js from SW cache; fall back to network if missing.
+ *            .wasm passes through unmodified (streaming compile).
  *
- * Ctrl+Shift+R bypasses the SW entirely for a forced fresh download.
+ * Ctrl+Shift+R bypasses the SW entirely -> fresh files downloaded ->
+ * HTTP cache populated -> next SW install picks them up via addAll().
  */
 
-self.addEventListener('install', () => self.skipWaiting());
+const CACHE    = 'xmoto-@BUILD_TS@';
+const PRECACHE = ['xmoto.data', 'xmoto.js'];
+
+self.addEventListener('install', evt =>
+  evt.waitUntil(
+    caches.open(CACHE)
+      .then(cache => cache.addAll(PRECACHE))
+      .then(() => self.skipWaiting())
+  )
+);
 
 self.addEventListener('activate', evt =>
   evt.waitUntil(
     caches.keys()
-      .then(keys => Promise.all(keys.map(k => caches.delete(k))))
+      .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
       .then(() => self.clients.claim())
   )
 );
 
 self.addEventListener('fetch', evt => {
   const p = new URL(evt.request.url).pathname;
-  if (p.endsWith('.wasm')) return;  /* pass .wasm through for streaming compile */
+  if (p.endsWith('.wasm')) return;
   const isJs = p.endsWith('.js') && !p.endsWith('sw.js');
   if (!p.endsWith('.data') && !isJs) return;
+
   evt.respondWith(
-    fetch(new Request(evt.request.url, {
-      /* force-cache: serve from HTTP cache regardless of the browser's
-         reload flag.  Firefox Ctrl+R propagates cache:'no-cache' to
-         all fetches; this override ensures the 115 MB .data file and
-         .js are never re-downloaded on a soft refresh.
-         Only Ctrl+Shift+R (hard refresh) bypasses the SW entirely and
-         forces a fresh download from the server.                       */
-      cache:       'force-cache',
-      credentials: evt.request.credentials,
-    }))
+    caches.open(CACHE).then(cache =>
+      cache.match(evt.request.url).then(cached => {
+        if (cached) return cached;
+        return fetch(evt.request).then(res => {
+          if (res.ok) cache.put(evt.request.url, res.clone());
+          return res;
+        });
+      })
+    )
   );
 });
