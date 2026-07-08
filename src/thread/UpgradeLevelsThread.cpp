@@ -157,6 +157,16 @@ int UpgradeLevelsThread::realThreadFunction() {
     return 0;
   }
 
+#ifdef __EMSCRIPTEN__
+  /* No UI interaction possible during synchronous downloads.
+     Cap to 20 per run (same as UPGRADE_LEVELS_NB_PROPOSAL on desktop)
+     so the tab does not freeze for minutes.
+     Run 'Get New Levels' again to continue. */
+  if (m_nb_levels < 0 || m_nb_levels > 20) {
+    m_nb_levels = 20;
+  }
+#endif
+
   setThreadCurrentOperation(GAMETEXT_DLLEVELS);
   setThreadProgress(0);
 
