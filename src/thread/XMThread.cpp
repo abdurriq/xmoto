@@ -127,6 +127,13 @@ void XMThread::killThread() {
 }
 
 void XMThread::sleepThread() {
+#ifdef __EMSCRIPTEN__
+  /* No second thread can call unsleepThread() on emscripten.
+     Signal "end requested" so callers treat this as a cancelled wait
+     and skip the subsequent work (e.g. individual level downloads). */
+  m_askThreadToEnd = true;
+  m_isSleeping = false;
+#else
   SDL_LockMutex(m_sleepMutex);
 
   m_isSleeping = true;
@@ -134,6 +141,7 @@ void XMThread::sleepThread() {
 
   SDL_CondWait(m_sleepCond, m_sleepMutex);
   SDL_UnlockMutex(m_sleepMutex);
+#endif
 }
 
 void XMThread::unsleepThread(std::string infos) {
