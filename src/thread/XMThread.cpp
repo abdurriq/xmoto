@@ -63,11 +63,23 @@ int XMThread::run(void *pThreadInstance) {
 }
 
 void XMThread::startThread() {
+#ifdef __EMSCRIPTEN__
+  /* Without pthreads, SDL_CreateThread runs synchronously on the main
+     thread, blocking the RAF callback and hanging the tab.  Leave the
+     thread as not-running so callers see it as "already finished" and
+     skip the download/update.  Background www checks are silently
+     skipped; async download support can be added later. */
+  m_isRunning = false;
+#elif ENABLE_THREADING
   m_progress = -1;
   m_currentOperation = "";
   m_askThreadToEnd = false;
   m_isRunning = true; // set before running the thread
   m_pThread = SDL_CreateThread(&XMThread::run, NULL, this);
+#else
+  /* Threading disabled: run synchronously (desktop non-threaded builds). */
+  runInMain();
+#endif
 }
 
 int XMThread::runInMain() {
