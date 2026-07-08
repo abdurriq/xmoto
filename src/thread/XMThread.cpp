@@ -128,10 +128,11 @@ void XMThread::killThread() {
 
 void XMThread::sleepThread() {
 #ifdef __EMSCRIPTEN__
-  /* No second thread can call unsleepThread() on emscripten.
-     Signal "end requested" so callers treat this as a cancelled wait
-     and skip the subsequent work (e.g. individual level downloads). */
-  m_askThreadToEnd = true;
+  /* No condition variable to wait on (no second thread).
+     Return immediately — the caller treats this as the user having
+     confirmed the download dialog, so Phase 2 (individual file
+     downloads) proceeds.  The tab freezes for the download duration
+     but levels are actually written to IDBFS. */
   m_isSleeping = false;
 #else
   SDL_LockMutex(m_sleepMutex);
