@@ -78,6 +78,7 @@ protected:
 
   SDL_Thread *m_pThread;
   bool m_isRunning;
+  int  m_lastRunResult; /* emscripten: result from runInMain() */
   bool m_isSleeping;
   bool m_askThreadToEnd;
   bool m_askThreadToSleep;

@@ -64,12 +64,11 @@ int XMThread::run(void *pThreadInstance) {
 
 void XMThread::startThread() {
 #ifdef __EMSCRIPTEN__
-  /* Without pthreads, SDL_CreateThread runs synchronously on the main
-     thread, blocking the RAF callback and hanging the tab.  Leave the
-     thread as not-running so callers see it as "already finished" and
-     skip the download/update.  Background www checks are silently
-     skipped; async download support can be added later. */
-  m_isRunning = false;
+  /* Without pthreads, run the download synchronously on the main thread.
+     The tab briefly freezes for the download duration (~1-2 s for small
+     XML files); acceptable for explicit user-triggered downloads.  The
+     result is stored so waitForThreadEnd() can return it. */
+  m_lastRunResult = runInMain();
 #elif ENABLE_THREADING
   m_progress = -1;
   m_currentOperation = "";
@@ -93,9 +92,9 @@ int XMThread::runInMain() {
 
 int XMThread::waitForThreadEnd() {
 #ifdef __EMSCRIPTEN__
-  /* m_pThread is NULL (startThread is a no-op); nothing to wait for. */
-  m_isRunning = false;
-  return 0;
+  /* runInMain() already completed synchronously in startThread().
+     m_isRunning was set to false by threadFunctionEncapsulate. */
+  return m_lastRunResult;
 #else
   int returnValue;
   SDL_WaitThread(m_pThread, &returnValue);
