@@ -62,10 +62,18 @@ void FSWeb::downloadFile(const std::string &p_local_file,
       try {
         var xhr = new XMLHttpRequest();
         xhr.open('GET', url, false);   /* synchronous */
-        xhr.responseType = 'arraybuffer';
+        /* responseType='arraybuffer' is ignored in synchronous window context
+           (browser spec §4.5.5).  Use overrideMimeType with x-user-defined so
+           binary bytes survive the text codec; extract via charCodeAt & 0xff. */
+        xhr.overrideMimeType('text/plain; charset=x-user-defined');
         xhr.send(null);
         if (xhr.status >= 200 && xhr.status < 300) {
-          FS.writeFile(dstPath, new Uint8Array(xhr.response));
+          var raw = xhr.responseText;
+          var bytes = new Uint8Array(raw.length);
+          for (var i = 0; i < raw.length; i++) {
+            bytes[i] = raw.charCodeAt(i) & 0xff;
+          }
+          FS.writeFile(dstPath, bytes);
           return 0;
         }
         return xhr.status || 400;
