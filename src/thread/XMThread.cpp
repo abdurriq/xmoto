@@ -92,11 +92,17 @@ int XMThread::runInMain() {
 }
 
 int XMThread::waitForThreadEnd() {
+#ifdef __EMSCRIPTEN__
+  /* m_pThread is NULL (startThread is a no-op); nothing to wait for. */
+  m_isRunning = false;
+  return 0;
+#else
   int returnValue;
   SDL_WaitThread(m_pThread, &returnValue);
   m_pThread = NULL;
   m_isRunning = false;
   return returnValue;
+#endif
 }
 
 bool XMThread::isThreadRunning() {
