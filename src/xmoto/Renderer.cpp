@@ -115,7 +115,6 @@ GameRenderer::GameRenderer() {
   m_showEngineCounter = true;
   m_showTimePanel = true;
   m_allowGhostEffect = true;
-  m_renderingGhost   = false;
   m_currentSkySprite = NULL;
   m_currentSkySprite2 = NULL;
   m_showGhostsText = true;
@@ -789,16 +788,13 @@ void GameRenderer::_RenderGhost(Scene *i_scene,
 
       try {
         if (i_ghost->isStateInitialized()) {
-          m_renderingGhost = true;
           _RenderBike(i_ghost,
                       true,
                       i_ghost->getColorFilter(),
                       i_ghost->getUglyColorFilter());
-          m_renderingGhost = false;
           i_ghost->addNbRenderedFrames();
         }
       } catch (Exception &e) {
-        m_renderingGhost = false;
         i_scene->gameMessage("Unable to render the ghost", true, 50);
       }
 

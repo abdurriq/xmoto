@@ -183,7 +183,6 @@ private:
   GraphicsLevel m_graphicsLevel;
 
   bool m_allowGhostEffect; // ask to not do the ghost effect
-  bool m_renderingGhost;    // true only while rendering a ghost bike (emscripten: drives alpha)
 
   float m_previousEngineSpeed;
   float m_previousEngineLinVel;
