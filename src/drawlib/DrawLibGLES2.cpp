@@ -508,6 +508,12 @@ void DrawLibGLES2::_flush_batch() {
     glBindTexture(GL_TEXTURE_2D, m_texture->nID);
     glUniform1i(m_loc_use_tex, 1);
   } else {
+    /* Explicitly unbind so GL_TEXTURE_2D unit 0 is not pointing at any
+       texture while we render.  Without this, a previously bound texture
+       (e.g. the FBO texture from present()) remains attached to the sampler
+       even when u_use_tex=0, which WebGL2 detects as an illegal feedback
+       loop when that texture is also the current FBO colour attachment. */
+    glBindTexture(GL_TEXTURE_2D, 0);
     glUniform1i(m_loc_use_tex, 0);
   }
 
