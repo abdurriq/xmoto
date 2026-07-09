@@ -470,9 +470,17 @@ void DrawLibGLES2::init(unsigned int nW, unsigned int nH, bool windowed) {
   m_fontBig      = getFontManager(XMFS::FullPath(FDT_DATA, FontManager::getDrawFontFile()), 60);
   m_fontMonospace= getFontManager(XMFS::FullPath(FDT_DATA, FontManager::getMonospaceFontFile()), 12, 7);
 
-  /* FBO ghost-trail overlay: re-enabled now that fade() and present()
-   * have GLES2 implementations in RendererFBO.cpp. */
-  m_bFBOSupported = true;
+  /* FBO ghost-trail overlay: disabled on emscripten.
+   * The FBO accumulates ghost positions in NDC (camera-relative) space.
+   * As the camera scrolls between frames the old NDC positions map to
+   * different screen locations, so the fading ghost trail appears at
+   * wrong positions — 'burnt in' on the terrain ahead of / behind the
+   * actual ghost.  This camera-relative artefact is inherent to the FBO
+   * approach with a moving camera and cannot be fixed without a world-space
+   * ghost-position store.
+   * Instead: render the ghost directly each frame at the correct world
+   * position with a reduced alpha (see _RenderAlphaBlendedSection). */
+  m_bFBOSupported = false;
 
   LogInfo("DrawLibGLES2: WebGL2 context created (%ux%u)", nW, nH);
 }

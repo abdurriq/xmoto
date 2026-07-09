@@ -183,6 +183,7 @@ private:
   GraphicsLevel m_graphicsLevel;
 
   bool m_allowGhostEffect; // ask to not do the ghost effect
+  bool m_renderingGhost;    // true while rendering a ghost; drives alpha in _RenderAlphaBlendedSection
 
   float m_previousEngineSpeed;
   float m_previousEngineLinVel;

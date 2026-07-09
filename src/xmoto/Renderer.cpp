@@ -115,6 +115,7 @@ GameRenderer::GameRenderer() {
   m_showEngineCounter = true;
   m_showTimePanel = true;
   m_allowGhostEffect = true;
+  m_renderingGhost   = false;
   m_currentSkySprite = NULL;
   m_currentSkySprite2 = NULL;
   m_showGhostsText = true;
@@ -788,13 +789,16 @@ void GameRenderer::_RenderGhost(Scene *i_scene,
 
       try {
         if (i_ghost->isStateInitialized()) {
+          m_renderingGhost = true;
           _RenderBike(i_ghost,
                       true,
                       i_ghost->getColorFilter(),
                       i_ghost->getUglyColorFilter());
+          m_renderingGhost = false;
           i_ghost->addNbRenderedFrames();
         }
       } catch (Exception &e) {
+        m_renderingGhost = false;
         i_scene->gameMessage("Unable to render the ghost", true, 50);
       }
 
@@ -2955,7 +2959,14 @@ void GameRenderer::_RenderAlphaBlendedSection(Texture *pTexture,
     p3, p2, p1, p0,
     pTexture,
     MAKE_COLOR(
-      i_filterColor.Red(), i_filterColor.Green(), i_filterColor.Blue(), 255));
+      i_filterColor.Red(), i_filterColor.Green(), i_filterColor.Blue(),
+#ifdef __EMSCRIPTEN__
+      /* No FBO on GLES2 — render ghost at 55% opacity for translucency. */
+      m_renderingGhost ? 140 : 255
+#else
+      255
+#endif
+    ));
 }
 
 void GameRenderer::_RenderAdditiveBlendedSection(Texture *pTexture,
