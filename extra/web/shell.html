@@ -156,18 +156,18 @@
              2. Immediately when the page becomes hidden (tab switch,
                 navigate away, refresh) — most reliable pre-unload hook. */
         function persistNow() {
-          /* 1. Write C++ config (audio/keys/etc.) to the emscripten VFS first.
-                This is synchronous — it just writes to the in-memory FS.    */
-          try {
-            if (Module._xmoto_save_config) Module._xmoto_save_config();
-          } catch(e) {}
-          /* 2. Flush the in-memory VFS to IndexedDB (async).                */
+          /* Guard: don't issue a second syncfs while one is already running. */
+          if (persistNow._inFlight) return;
+          persistNow._inFlight = true;
+          try { if (Module._xmoto_save_config) Module._xmoto_save_config(); } catch(e) {}
           try {
             FS.syncfs(false, function(err) {
+              persistNow._inFlight = false;
               if (err) console.warn('[xmoto] IDBFS sync error:', err);
             });
-          } catch(e) { /* FS not yet ready */ }
+          } catch(e) { persistNow._inFlight = false; }
         }
+        persistNow._inFlight = false;
 
         setInterval(persistNow, 10000);
 
