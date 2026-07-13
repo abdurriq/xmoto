@@ -220,6 +220,17 @@ Texture *TextureManager::createTexture(const std::string &Name,
 
   glDisable(GL_TEXTURE_2D);
 
+#ifdef __EMSCRIPTEN__
+  {
+    GLenum e = glGetError();
+    if (e != GL_NO_ERROR)
+      fprintf(stderr, "[tex] upload GL error 0x%04x for '%s' %dx%d\n",
+              (unsigned)e, Name.c_str(), nWidth, nHeight);
+    else if (N == 0)
+      fprintf(stderr, "[tex] glGenTextures returned 0 for '%s'\n", Name.c_str());
+  }
+#endif
+
   pTexture->nID = N;
 #endif
 
