@@ -2323,12 +2323,19 @@ void GameRenderer::_RenderStaticBlock(Block *block) {
         pDrawlib->setTexture(NULL, BLEND_MODE_A);
       }
       pDrawlib->startDraw(DRAW_MODE_POLYGON);
-      /* Use neutral white only when texture is present; gray when missing
-         so the geometry is visible instead of blending into a white sky. */
-      if (block->getSprite() != NULL && block->getSprite()->getTexture() != NULL)
-        pDrawlib->setColorRGB(255, 255, 255);
-      else
-        pDrawlib->setColorRGB(128, 128, 128);
+      /* Apply the per-block blend colour from the level XML <usetexture
+         color_r/g/b> attributes.  Levels like "Moe - Straight Away" use a
+         plain white texture with per-block colour tinting to create varied
+         terrain; ignoring this (always using white) made them all-white.
+         Match the behaviour of the desktop OpenGL path and the dyn-block
+         SdlGFX path which both use block->getBlendColor(). */
+      {
+        TColor v_bc = TColor(block->getBlendColor());
+        if (block->getSprite() != NULL && block->getSprite()->getTexture() != NULL)
+          pDrawlib->setColorRGBA(v_bc.Red(), v_bc.Green(), v_bc.Blue(), v_bc.Alpha());
+        else
+          pDrawlib->setColorRGB(128, 128, 128); /* missing texture: gray */
+      }
       for (unsigned int k = 0; k < geom->Polys[j]->nNumVertices; k++) {
         pDrawlib->glTexCoord(geom->Polys[j]->pTexCoords[k].x,
                              geom->Polys[j]->pTexCoords[k].y);
