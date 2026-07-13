@@ -2323,7 +2323,12 @@ void GameRenderer::_RenderStaticBlock(Block *block) {
         pDrawlib->setTexture(NULL, BLEND_MODE_A);
       }
       pDrawlib->startDraw(DRAW_MODE_POLYGON);
-      pDrawlib->setColorRGB(255, 255, 255);
+      /* Use neutral white only when texture is present; gray when missing
+         so the geometry is visible instead of blending into a white sky. */
+      if (block->getSprite() != NULL && block->getSprite()->getTexture() != NULL)
+        pDrawlib->setColorRGB(255, 255, 255);
+      else
+        pDrawlib->setColorRGB(128, 128, 128);
       for (unsigned int k = 0; k < geom->Polys[j]->nNumVertices; k++) {
         pDrawlib->glTexCoord(geom->Polys[j]->pTexCoords[k].x,
                              geom->Polys[j]->pTexCoords[k].y);

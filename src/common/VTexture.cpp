@@ -372,6 +372,9 @@ Texture *TextureManager::loadTexture(const std::string &Path,
     LogWarning(
       "TextureManager::loadTexture() : texture '%s' not found or invalid",
       Path.c_str());
+#ifdef __EMSCRIPTEN__
+    fprintf(stderr, "[tex] missing: %s\n", Path.c_str());
+#endif
     throw TextureError(
       std::string("invalid or missing texture file (" + Path + ")").c_str());
   }
