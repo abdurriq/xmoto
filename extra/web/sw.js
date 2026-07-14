@@ -1,30 +1,24 @@
 /*
  * sw.js - X-Moto Service Worker  (build @BUILD_TS@)
  *
- * Caches xmoto.data and xmoto.js in the SW cache so that Firefox Ctrl+R
- * (which propagates cache:no-cache to all sub-resource fetches, bypassing
- * even explicit cache:'force-cache' in new Request() calls) cannot cause
- * a re-download.  The SW cache is completely immune to browser reload flags.
+ * Caches xmoto.data, xmoto.js, and xmoto.wasm in the SW cache so that all
+ * three always come from the same build and can never mismatch.  A mismatch
+ * (e.g. old cached .js against a fresh .wasm) causes a LinkError on load.
  *
- * On install: pre-cache xmoto.data + xmoto.js (uses HTTP cache if warm).
- * On activate: delete old caches from previous builds.
- * On fetch: serve .data/.js from SW cache; fall back to network if missing.
- *            .wasm passes through unmodified (streaming compile).
+ * Files are cached lazily on first fetch; no eager install pre-caching that
+ * would compete with the page load and abort wasm streaming compilation.
+ * WebAssembly.instantiateStreaming() works with cached Response objects.
  *
- * Ctrl+Shift+R bypasses the SW entirely -> fresh files downloaded ->
- * HTTP cache populated -> next SW install picks them up via addAll().
+ * Ctrl+Shift+R bypasses the SW entirely -> fresh files are fetched and
+ * cached on the next normal page load.
+ *
+ * On new build (new timestamp): old cache deleted in activate, fresh files
+ * cached on next request.
  */
 
-const CACHE    = 'xmoto-@BUILD_TS@';
-const PRECACHE = ['xmoto.data', 'xmoto.js'];
+const CACHE = 'xmoto-@BUILD_TS@';
 
-self.addEventListener('install', evt =>
-  evt.waitUntil(
-    caches.open(CACHE)
-      .then(cache => cache.addAll(PRECACHE))
-      .then(() => self.skipWaiting())
-  )
-);
+self.addEventListener('install', () => self.skipWaiting());
 
 self.addEventListener('activate', evt =>
   evt.waitUntil(
@@ -36,14 +30,16 @@ self.addEventListener('activate', evt =>
 
 self.addEventListener('fetch', evt => {
   const p = new URL(evt.request.url).pathname;
-  if (p.endsWith('.wasm')) return;
-  const isJs = p.endsWith('.js') && !p.endsWith('sw.js');
-  if (!p.endsWith('.data') && !isJs) return;
+  const isJs   = p.endsWith('.js')   && !p.endsWith('sw.js');
+  const isWasm = p.endsWith('.wasm');
+  const isData = p.endsWith('.data');
+  if (!isJs && !isWasm && !isData) return; /* let everything else through */
 
   evt.respondWith(
     caches.open(CACHE).then(cache =>
       cache.match(evt.request.url).then(cached => {
         if (cached) return cached;
+        /* Not in SW cache yet: fetch fresh and cache for next reload */
         return fetch(evt.request).then(res => {
           if (res.ok) cache.put(evt.request.url, res.clone());
           return res;
