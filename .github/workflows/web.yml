@@ -1,10 +1,21 @@
-name: Web Build (Emscripten)
+name: Web Build & Deploy (Emscripten)
 
 on:
   push:
     branches: [ master ]
   pull_request:
     branches: [ master ]
+
+# Required for GitHub Pages deployment
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one deployment at a time; cancel in-progress on new push
+concurrency:
+  group: pages
+  cancel-in-progress: true
 
 jobs:
   build-web:
@@ -56,8 +67,25 @@ jobs:
           ls -lh build-web/src/xmoto.{html,js,wasm,data}
           echo "Build succeeded."
 
-      # ── Upload artifact ─────────────────────────────────────────────────────
-      - name: Upload web build artifact
+      # ── Optional: custom domain CNAME ───────────────────────────────────────
+      # To use a custom domain (e.g. xmoto.example.com), set the
+      # PAGES_CUSTOM_DOMAIN secret in Settings → Secrets and variables → Actions.
+      # Then point a CNAME DNS record to abdurriq.github.io.
+      # Leave unset to use the default https://abdurriq.github.io/xmoto/
+      - name: Write CNAME (custom domain)
+        if: ${{ env.PAGES_CUSTOM_DOMAIN != '' }}
+        env:
+          PAGES_CUSTOM_DOMAIN: ${{ secrets.PAGES_CUSTOM_DOMAIN }}
+        run: echo "$PAGES_CUSTOM_DOMAIN" > build-web/src/CNAME
+
+      # ── Upload Pages artifact ────────────────────────────────────────────────
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build-web/src
+
+      # ── Also keep the named artifact for download ───────────────────────────
+      - name: Upload build artifact (download)
         uses: actions/upload-artifact@v4
         with:
           name: xmoto-web-${{ github.sha }}
@@ -68,3 +96,16 @@ jobs:
             build-web/src/xmoto.data
             build-web/src/sw.js
           retention-days: 30
+
+  # ── Deploy to GitHub Pages (only on push to master, not PRs) ───────────────
+  deploy:
+    needs: build-web
+    runs-on: ubuntu-22.04
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
