@@ -220,17 +220,6 @@ Texture *TextureManager::createTexture(const std::string &Name,
 
   glDisable(GL_TEXTURE_2D);
 
-#ifdef __EMSCRIPTEN__
-  {
-    GLenum e = glGetError();
-    if (e != GL_NO_ERROR)
-      fprintf(stderr, "[tex] upload GL error 0x%04x for '%s' %dx%d\n",
-              (unsigned)e, Name.c_str(), nWidth, nHeight);
-    else if (N == 0)
-      fprintf(stderr, "[tex] glGenTextures returned 0 for '%s'\n", Name.c_str());
-  }
-#endif
-
   pTexture->nID = N;
 #endif
 
@@ -383,9 +372,6 @@ Texture *TextureManager::loadTexture(const std::string &Path,
     LogWarning(
       "TextureManager::loadTexture() : texture '%s' not found or invalid",
       Path.c_str());
-#ifdef __EMSCRIPTEN__
-    fprintf(stderr, "[tex] missing: %s\n", Path.c_str());
-#endif
     throw TextureError(
       std::string("invalid or missing texture file (" + Path + ")").c_str());
   }

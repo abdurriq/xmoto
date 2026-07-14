@@ -513,9 +513,6 @@ void DrawLibGLES2::_flush_batch() {
   glUniform1i(m_loc_tex, 0);
 
   if (m_texture) {
-    if (m_texture->nID == 0) {
-      fprintf(stderr, "[tex] nID=0 at draw for '%s'\n", m_texture->Name.c_str());
-    }
     glBindTexture(GL_TEXTURE_2D, m_texture->nID);
     glUniform1i(m_loc_use_tex, 1);
   } else {
