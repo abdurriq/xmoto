@@ -1,11 +1,6 @@
 name: SonarCloud
 on:
-  push:
-    branches:
-      - master
-      - ci
-  pull_request:
-    types: [opened, synchronize, reopened]
+  workflow_dispatch: # disabled: requires SonarCloud token not available on fork
 jobs:
   build:
     name: Build and analyze
@@ -17,15 +12,7 @@ jobs:
         with:
           fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
       - name: Install sonar-scanner and build-wrapper
-        run: |
-          curl -sSLo /tmp/bw.zip https://sonarcloud.io/static/cpp/build-wrapper-linux-x86.zip
-          unzip -q /tmp/bw.zip -d /usr/local
-          SONAR_VERSION=7.0.2.4839
-          curl -sSLo /tmp/ss.zip \
-            "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONAR_VERSION}-linux-x64.zip"
-          unzip -q /tmp/ss.zip -d /usr/local
-          echo "/usr/local/sonar-scanner-${SONAR_VERSION}-linux-x64/bin" >> $GITHUB_PATH
-          echo "/usr/local/build-wrapper-linux-x86" >> $GITHUB_PATH
+        uses: SonarSource/sonarcloud-github-c-cpp@v2
       - name: Install dependencies
         run: ./.github/workflows/deps/linux.sh
       - name: Configure build
