@@ -1,11 +1,6 @@
 name: SonarCloud
 on:
-  push:
-    branches:
-      - master
-      - ci
-  pull_request:
-    types: [opened, synchronize, reopened]
+  workflow_dispatch: # disabled: requires SonarCloud token not available on fork
 jobs:
   build:
     name: Build and analyze
