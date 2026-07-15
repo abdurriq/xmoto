@@ -47,13 +47,19 @@ jobs:
             | tar -xJ -C vendor/libxml2 --strip-components=1
 
       # ── CMake configure ─────────────────────────────────────────────────────
+      - name: Pre-build Emscripten ports (zlib, libpng, etc.)
+        run: embuilder build zlib libpng libjpeg sdl2 sdl2_ttf sdl2_mixer sqlite3 freetype
+
       - name: Configure WASM build
         run: |
+          SYSROOT=$(emcc --print-sysroot)
           mkdir -p build-web
           cd build-web
           emcmake cmake .. \
             -DEMSCRIPTEN_BUILD=ON \
-            -DCMAKE_BUILD_TYPE=Release
+            -DCMAKE_BUILD_TYPE=Release \
+            -DZLIB_INCLUDE_DIR="${SYSROOT}/include" \
+            -DZLIB_LIBRARY="${SYSROOT}/lib/wasm32-emscripten/libz.a"
 
       # ── Compile & link ──────────────────────────────────────────────────────
       - name: Build
