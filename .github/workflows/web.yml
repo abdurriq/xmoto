@@ -46,6 +46,41 @@ jobs:
           curl -sL "https://download.gnome.org/sources/libxml2/2.9/libxml2-2.9.14.tar.xz" \
             | tar -xJ -C vendor/libxml2 --strip-components=1
 
+      # ── xmoto.bin (packed game assets, built from native binary) ────────────
+      - name: Cache xmoto.bin
+        id: cache-xmoto-bin
+        uses: actions/cache@v4
+        with:
+          path: bin/xmoto.bin
+          key: xmoto-bin-${{ hashFiles('bin/**') }}
+
+      - name: Install native build dependencies
+        if: steps.cache-xmoto-bin.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            libsdl2-dev libsdl2-mixer-dev libsdl2-ttf-dev libsdl2-net-dev \
+            libode-dev libsqlite3-dev liblua5.1-0-dev libpng-dev libjpeg-dev \
+            zlib1g-dev libxml2-dev libxdg-basedir-dev libglu1-mesa-dev \
+            cmake ninja-build
+
+      - name: Build native xmoto (for asset packing)
+        if: steps.cache-xmoto-bin.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p build-native
+          cd build-native
+          cmake .. \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DUSE_GETTEXT=OFF \
+            -DCMAKE_EXE_LINKER_FLAGS="-lGLU" \
+            -DEMSCRIPTEN_BUILD=OFF \
+            -G Ninja
+          ninja xmoto
+
+      - name: Pack xmoto.bin
+        if: steps.cache-xmoto-bin.outputs.cache-hit != 'true'
+        run: ./build-native/src/xmoto --pack bin/xmoto.bin bin/
+
       # ── CMake configure ─────────────────────────────────────────────────────
       - name: Pre-build Emscripten ports (zlib, libpng, etc.)
         run: embuilder build zlib libpng libjpeg sdl2 sdl2_ttf sdl2_mixer sqlite3 freetype
