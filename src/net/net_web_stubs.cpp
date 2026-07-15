@@ -91,6 +91,7 @@ unsigned int NetAction::m_UDPPacketsSizeSent   = 0;
 NetAction::NetAction(bool i_forceTcp)
     : m_source(-2), m_subsource(-2), m_forceTCP(i_forceTcp) {}
 NetAction::~NetAction() {}
+void NetAction::send(TCPsocket *, UDPsocket *, UDPpacket *, IPaddress *) {}
 void NetAction::logStats()   {}
 void ActionReader::logStats() {}
 
