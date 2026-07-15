@@ -52,7 +52,7 @@ jobs:
 
       - name: Configure WASM build
         run: |
-          SYSROOT=$(emcc --print-sysroot)
+          SYSROOT=$(emcc --print-sysroot 2>/dev/null || true)
           mkdir -p build-web
           cd build-web
           emcmake cmake .. \
