@@ -60,7 +60,7 @@
     #quit-overlay button {
       padding: 0.6rem 2rem; font-size: 1rem;
       background: #5af; border: none; border-radius: 6px;
-      color: #000; cursor: pointer;
+      color: #000; cursor: pointer
     }
     #quit-overlay button:hover { background: #7cf; }
 
@@ -117,7 +117,9 @@
       }
     });
 
-    /* FPS counter — samples last 120 frames, updates every 500 ms */
+    /* FPS counter — samples last 120 frames, updates every 500 ms.
+       Shows avg, 1% low (worst 1% of frames = stutter indicator), and
+       current frame time in ms. Press backtick to toggle.               */
     (function() {
       var el = document.getElementById('fps');
       var samples = [], last = performance.now(), timer = 0;
@@ -128,12 +130,14 @@
         timer += dt;
         if (timer >= 500 && samples.length > 1) {
           timer = 0;
-          var avg = 1000 / (samples.reduce(function(a,b){return a+b;}) / samples.length);
-          var minFps = 1000 / Math.max.apply(null, samples);
-          var maxFps = 1000 / Math.min.apply(null, samples);
-          el.textContent = 'FPS  avg:' + avg.toFixed(0)
-            + '  min:' + minFps.toFixed(0)
-            + '  max:' + maxFps.toFixed(0);
+          var sum = samples.reduce(function(a,b){return a+b;});
+          var avg = 1000 / (sum / samples.length);
+          var sorted = samples.slice().sort(function(a,b){return b-a;}); /* desc ms = worst frames first */
+          var p99 = sorted[Math.floor(sorted.length * 0.01)] || sorted[0];
+          var low1 = 1000 / p99;
+          var cur = 1000 / dt;
+          el.innerHTML = 'avg <b>' + avg.toFixed(0) + '</b>  1%%low <b>' + low1.toFixed(0)
+            + '</b>  cur <b>' + cur.toFixed(0) + '</b> fps';
         }
         requestAnimationFrame(tick);
       }
@@ -151,6 +155,9 @@
 
     var Module = {
       canvas: canvas,
+      /* Request the high-performance (discrete) GPU on multi-GPU systems.
+         Reduces Safari/MacBook integrated-GPU throttling.               */
+      webglContextAttributes: { powerPreference: 'high-performance', antialias: false },
 
       preRun: [function() {
         /* Mount /xmoto-user as IDBFS before main() — no Asyncify needed */
