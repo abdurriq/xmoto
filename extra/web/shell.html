@@ -63,6 +63,12 @@
       color: #000; cursor: pointer;
     }
     #quit-overlay button:hover { background: #7cf; }
+
+    /* FPS counter — bottom-left corner, toggle with backtick */
+    #fps { position: absolute; bottom: 4px; left: 6px; z-index: 20;
+           color: #0f0; font: 11px/1.4 monospace;
+           background: rgba(0,0,0,0.55); padding: 2px 5px;
+           border-radius: 3px; pointer-events: none; display: none; }
   </style>
 </head>
 <body>
@@ -73,6 +79,7 @@
       <h2>Thanks for playing!</h2>
       <button onclick="location.reload()">Play Again</button>
     </div>
+    <div id="fps"></div>
     <div id="loading">
       <h1>X-Moto</h1>
       <div id="loading-status">Loading…</div>
@@ -104,7 +111,34 @@
         e.preventDefault();
         document.getElementById('fs-btn').click();
       }
+      if (e.key === '`') {
+        var fps = document.getElementById('fps');
+        fps.style.display = fps.style.display === 'none' ? 'block' : 'none';
+      }
     });
+
+    /* FPS counter — samples last 120 frames, updates every 500 ms */
+    (function() {
+      var el = document.getElementById('fps');
+      var samples = [], last = performance.now(), timer = 0;
+      function tick(now) {
+        var dt = now - last; last = now;
+        if (dt > 0 && dt < 2000) samples.push(dt);
+        if (samples.length > 120) samples.shift();
+        timer += dt;
+        if (timer >= 500 && samples.length > 1) {
+          timer = 0;
+          var avg = 1000 / (samples.reduce(function(a,b){return a+b;}) / samples.length);
+          var minFps = 1000 / Math.max.apply(null, samples);
+          var maxFps = 1000 / Math.min.apply(null, samples);
+          el.textContent = 'FPS  avg:' + avg.toFixed(0)
+            + '  min:' + minFps.toFixed(0)
+            + '  max:' + maxFps.toFixed(0);
+        }
+        requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    })();
 
     /* Focus the canvas on any interaction so SDL receives events.
        The first click/keydown also satisfies the browser's autoplay policy,
