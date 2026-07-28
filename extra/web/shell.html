@@ -3,35 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <script>
-    /* Cross-Origin Isolation bootstrap.
-       WASM pthreads need SharedArrayBuffer which requires COOP+COEP headers.
-       Our sw.js injects these, but the SW must be active BEFORE the page
-       load.  If not yet isolated:
-         1. Register sw.js now (async).
-         2. Replace the page with a placeholder via document.open() — this
-            stops xmoto.js from loading and crashing on SharedArrayBuffer.
-         3. When the SW activates (ready promise), reload.
-         4. sessionStorage flag prevents an infinite reload loop.        */
-    (function() {
-      if (typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated) return;
-      if (!('serviceWorker' in navigator)) return;
-      if (sessionStorage.getItem('xm-coi')) return; // already reloaded, give up
-      sessionStorage.setItem('xm-coi', '1');
-      navigator.serviceWorker.register('./sw.js')
-        .then(function() { return navigator.serviceWorker.ready; })
-        .then(function() { location.reload(); })
-        .catch(function(e) { console.warn('[xmoto] COI SW failed:', e); });
-      /* Replace the page to prevent xmoto.js from executing without SAB. */
-      document.open();
-      document.write('<!DOCTYPE html><html><head><meta charset=utf-8>'
-        + '<style>body{background:#111;color:#eee;font:1rem sans-serif;'
-        + 'display:flex;align-items:center;justify-content:center;'
-        + 'height:100vh;margin:0}</style></head>'
-        + '<body>X-Moto \u2014 enabling threading\u2026 reloading</body></html>');
-      document.close();
-    })();
-  </script>
+  <!-- COI handled at bottom of body; no head script needed -->
   <title>X-Moto Web</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -264,15 +236,58 @@
     });
   </script>
   <script>
-    /* Service Worker: caching + COI headers (see sw.js). Already registered
-       above if this is the first load; re-register here for subsequent loads
-       so the SW stays current after a build update.                          */
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./sw.js').catch(function(e) {
-        console.warn('[xmoto] SW registration failed:', e);
-      });
-    }
+    /*
+     * Cross-Origin Isolation + game loader.
+     *
+     * WASM pthreads require SharedArrayBuffer, which requires COOP+COEP
+     * headers (crossOriginIsolated=true). Our sw.js injects those headers,
+     * but the SW must be active before the navigation that needs isolation.
+     *
+     * Flow:
+     *  - If SharedArrayBuffer IS available: register SW (keep cache fresh)
+     *    and load xmoto.js.
+     *  - If SharedArrayBuffer is NOT available and SW not yet tried:
+     *    register SW, wait for it to become ready, then reload.
+     *    sessionStorage 'xm-coi' flag prevents reload loops.
+     *  - If SharedArrayBuffer is NOT available and we already reloaded:
+     *    show an error (browser doesn't support COI or SW failed).
+     */
+    (function() {
+      var hasSAB = typeof SharedArrayBuffer !== 'undefined';
+
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js').catch(function(e) {
+          console.warn('[xmoto] SW registration failed:', e);
+        });
+      }
+
+      if (hasSAB) {
+        /* Normal path: load the game. */
+        var s = document.createElement('script');
+        s.src = 'xmoto.js';
+        document.body.appendChild(s);
+        return;
+      }
+
+      /* SharedArrayBuffer not yet available — SW needs to activate first. */
+      if (sessionStorage.getItem('xm-coi')) {
+        /* Already reloaded once and still no SAB: give up. */
+        document.getElementById('loading-status').textContent =
+          'Cross-origin isolation unavailable. '
+          + 'Try Chrome, or clear site data and reload.';
+        console.warn('[xmoto] crossOriginIsolated=false after SW reload');
+        return;
+      }
+
+      /* First attempt: register SW and reload after it activates. */
+      sessionStorage.setItem('xm-coi', '1');
+      document.getElementById('loading-status').textContent =
+        'Enabling threading\u2026 reloading';
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.ready
+          .then(function() { location.reload(); });
+      }
+    })();
   </script>
-  {{{ SCRIPT }}}
 </body>
 </html>
