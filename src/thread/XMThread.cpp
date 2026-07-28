@@ -69,6 +69,13 @@ void XMThread::startThread() {
   m_askThreadToEnd = false;
   m_isRunning = true; // set before running the thread
   m_pThread = SDL_CreateThread(&XMThread::run, NULL, this);
+  if (!m_pThread) {
+    /* Thread creation failed (e.g. browser security policy). Fall back to
+       running synchronously so the caller can still proceed.             */
+    LogWarning("SDL_CreateThread failed, running synchronously");
+    m_isRunning = false;
+    m_lastRunResult = runInMain();
+  }
 #else
   /* Threading disabled: run synchronously on the calling thread. */
   m_lastRunResult = runInMain();
@@ -86,6 +93,16 @@ int XMThread::runInMain() {
 
 int XMThread::waitForThreadEnd() {
 #if ENABLE_THREADING
+  if (!m_pThread) {
+    /* Thread was never started or already cleaned up (e.g. sync fallback). */
+    return m_lastRunResult;
+  }
+  /* If the thread is sleeping on a condvar (e.g. waiting for user input on
+     a download dialog that the user dismissed), wake it first so it can
+     exit cleanly instead of blocking SDL_WaitThread forever.             */
+  if (m_isSleeping) {
+    unsleepThread("");
+  }
   int returnValue;
   SDL_WaitThread(m_pThread, &returnValue);
   m_pThread = NULL;
