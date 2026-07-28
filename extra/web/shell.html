@@ -3,6 +3,38 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>
+    /* Cross-Origin Isolation bootstrap.
+       WASM pthreads require SharedArrayBuffer which requires COI headers
+       (COOP + COEP).  Our sw.js injects these headers on every response,
+       but the SW must be active BEFORE the page load that needs isolation.
+       Strategy: if not yet isolated, register the SW and reload once.
+       sessionStorage flag prevents an infinite reload loop.           */
+    (function() {
+      if (typeof crossOriginIsolated === 'undefined') return; // old browser
+      if (crossOriginIsolated) return;                        // already isolated
+      if (!('serviceWorker' in navigator)) return;            // no SW support
+      if (sessionStorage.getItem('xm-coi-reload')) return;   // already tried
+      sessionStorage.setItem('xm-coi-reload', '1');
+      navigator.serviceWorker.register('./sw.js').then(function(reg) {
+        function doReload() { window.location.reload(); }
+        /* SW might already be installed (waiting or active). */
+        var sw = reg.installing || reg.waiting;
+        if (sw) {
+          sw.addEventListener('statechange', function() {
+            if (sw.state === 'activated') doReload();
+          });
+        } else if (reg.active) {
+          doReload();
+        }
+        /* Also catch the controllerchange event in case activation fires
+           before the state-change listener is attached.               */
+        navigator.serviceWorker.addEventListener('controllerchange', doReload);
+      }).catch(function(e) {
+        console.warn('[xmoto] COI SW registration failed:', e);
+      });
+    })();
+  </script>
   <title>X-Moto Web</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -235,8 +267,9 @@
     });
   </script>
   <script>
-    /* Register Service Worker to cache .wasm/.data/.js across Ctrl+R reloads.
-       Ctrl+Shift+R bypasses the SW and always fetches fresh files.           */
+    /* Service Worker: caching + COI headers (see sw.js). Already registered
+       above if this is the first load; re-register here for subsequent loads
+       so the SW stays current after a build update.                          */
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('./sw.js').catch(function(e) {
         console.warn('[xmoto] SW registration failed:', e);

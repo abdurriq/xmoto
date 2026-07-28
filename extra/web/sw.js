@@ -1,22 +1,41 @@
 /*
  * sw.js - X-Moto Service Worker  (build @BUILD_TS@)
  *
- * Caches xmoto.data, xmoto.js, and xmoto.wasm in the SW cache so that all
- * three always come from the same build and can never mismatch.  A mismatch
- * (e.g. old cached .js against a fresh .wasm) causes a LinkError on load.
+ * Two responsibilities:
  *
- * Files are cached lazily on first fetch; no eager install pre-caching that
- * would compete with the page load and abort wasm streaming compilation.
- * WebAssembly.instantiateStreaming() works with cached Response objects.
+ * 1. Cross-Origin Isolation (COI): inject COOP + COEP headers so that
+ *    SharedArrayBuffer (required for WASM pthreads) is available.
+ *    - Navigation (xmoto.html): COOP=same-origin + COEP=credentialless
+ *    - All served resources: CORP=cross-origin
+ *    We use COEP=credentialless (not require-corp) so that cross-origin
+ *    XHR for level downloads still works without the remote server
+ *    needing to send CORP headers.
  *
- * Ctrl+Shift+R bypasses the SW entirely -> fresh files are fetched and
- * cached on the next normal page load.
- *
- * On new build (new timestamp): old cache deleted in activate, fresh files
- * cached on next request.
+ * 2. Build-locked caching: xmoto.data / xmoto.js / xmoto.wasm are always
+ *    served from the same build so they can never version-mismatch.
+ *    Cache name includes a build timestamp; old caches are deleted on
+ *    activate.  Ctrl+Shift+R bypasses the SW entirely.
  */
 
 const CACHE = 'xmoto-@BUILD_TS@';
+
+// Add cross-origin isolation headers to a Response.
+// isNav=true  → also set COOP + COEP (needed on the HTML page itself)
+// isNav=false → CORP only (allow the resource to be used cross-origin)
+function coiWrap(response, isNav) {
+  if (!response || response.status === 0) return response;
+  const h = new Headers(response.headers);
+  if (isNav) {
+    h.set('Cross-Origin-Opener-Policy', 'same-origin');
+    h.set('Cross-Origin-Embedder-Policy', 'credentialless');
+  }
+  h.set('Cross-Origin-Resource-Policy', 'cross-origin');
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: h,
+  });
+}
 
 self.addEventListener('install', () => self.skipWaiting());
 
@@ -29,20 +48,30 @@ self.addEventListener('activate', evt =>
 );
 
 self.addEventListener('fetch', evt => {
-  const p = new URL(evt.request.url).pathname;
+  const req = evt.request;
+  const p   = new URL(req.url).pathname;
+  const isNav  = req.mode === 'navigate';
   const isJs   = p.endsWith('.js')   && !p.endsWith('sw.js');
   const isWasm = p.endsWith('.wasm');
   const isData = p.endsWith('.data');
-  if (!isJs && !isWasm && !isData) return; /* let everything else through */
 
+  // Navigation: add COOP+COEP to the HTML page (no caching needed for HTML).
+  if (isNav) {
+    evt.respondWith(fetch(req).then(res => coiWrap(res, true)));
+    return;
+  }
+
+  // Let all non-asset requests pass through untouched.
+  if (!isJs && !isWasm && !isData) return;
+
+  // Assets (.js/.wasm/.data): serve from cache with CORP header.
   evt.respondWith(
     caches.open(CACHE).then(cache =>
-      cache.match(evt.request.url).then(cached => {
-        if (cached) return cached;
-        /* Not in SW cache yet: fetch fresh and cache for next reload */
-        return fetch(evt.request).then(res => {
-          if (res.ok) cache.put(evt.request.url, res.clone());
-          return res;
+      cache.match(req.url).then(cached => {
+        if (cached) return coiWrap(cached, false);
+        return fetch(req).then(res => {
+          if (res.ok) cache.put(req.url, res.clone());
+          return coiWrap(res, false);
         });
       })
     )

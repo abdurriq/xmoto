@@ -63,21 +63,15 @@ int XMThread::run(void *pThreadInstance) {
 }
 
 void XMThread::startThread() {
-#ifdef __EMSCRIPTEN__
-  /* Without pthreads, run the download synchronously on the main thread.
-     The tab briefly freezes for the download duration (~1-2 s for small
-     XML files); acceptable for explicit user-triggered downloads.  The
-     result is stored so waitForThreadEnd() can return it. */
-  m_lastRunResult = runInMain();
-#elif ENABLE_THREADING
+#if ENABLE_THREADING
   m_progress = -1;
   m_currentOperation = "";
   m_askThreadToEnd = false;
   m_isRunning = true; // set before running the thread
   m_pThread = SDL_CreateThread(&XMThread::run, NULL, this);
 #else
-  /* Threading disabled: run synchronously (desktop non-threaded builds). */
-  runInMain();
+  /* Threading disabled: run synchronously on the calling thread. */
+  m_lastRunResult = runInMain();
 #endif
 }
 
@@ -91,16 +85,15 @@ int XMThread::runInMain() {
 }
 
 int XMThread::waitForThreadEnd() {
-#ifdef __EMSCRIPTEN__
-  /* runInMain() already completed synchronously in startThread().
-     m_isRunning was set to false by threadFunctionEncapsulate. */
-  return m_lastRunResult;
-#else
+#if ENABLE_THREADING
   int returnValue;
   SDL_WaitThread(m_pThread, &returnValue);
   m_pThread = NULL;
   m_isRunning = false;
   return returnValue;
+#else
+  /* Synchronous path: thread already ran in startThread(). */
+  return m_lastRunResult;
 #endif
 }
 
@@ -127,21 +120,15 @@ void XMThread::killThread() {
 }
 
 void XMThread::sleepThread() {
-#ifdef __EMSCRIPTEN__
-  /* No condition variable to wait on (no second thread).
-     Return immediately — the caller treats this as the user having
-     confirmed the download dialog, so Phase 2 (individual file
-     downloads) proceeds.  The tab freezes for the download duration
-     but levels are actually written to IDBFS. */
-  m_isSleeping = false;
-#else
+#if ENABLE_THREADING
   SDL_LockMutex(m_sleepMutex);
-
   m_isSleeping = true;
   m_askThreadToSleep = false;
-
   SDL_CondWait(m_sleepCond, m_sleepMutex);
   SDL_UnlockMutex(m_sleepMutex);
+#else
+  /* No second thread to signal; return immediately. */
+  m_isSleeping = false;
 #endif
 }
 

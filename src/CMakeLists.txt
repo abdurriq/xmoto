@@ -18,7 +18,7 @@ if(EMSCRIPTEN_BUILD)
   set(ENABLE_NETWORK   OFF CACHE BOOL "" FORCE)
   # WWW (level/highscore downloads) enabled via JS XHR instead of curl
   set(ENABLE_WWW       ON  CACHE BOOL "" FORCE)
-  set(ENABLE_THREADING OFF CACHE BOOL "" FORCE)
+  # Threading enabled via emscripten pthreads (-pthread) + COI service worker
   set(ENABLE_SERVER    OFF CACHE BOOL "" FORCE)
   set(USE_GETTEXT      OFF CACHE BOOL "" FORCE)
   set(PREFER_SYSTEM_XDG OFF CACHE BOOL "" FORCE)
@@ -867,6 +867,8 @@ if(EMSCRIPTEN_BUILD)
     "SHELL:-s USE_SQLITE3=1"
   )
   target_compile_options(xmoto PRIVATE ${EM_PORT_FLAGS})
+  # pthreads: required for ENABLE_THREADING=ON; enables SharedArrayBuffer in browser
+  target_compile_options(xmoto PRIVATE -pthread)
 
   target_include_directories(xmoto PRIVATE
     "${CMAKE_SOURCE_DIR}/vendor/libxml2/include"
@@ -892,6 +894,8 @@ if(EMSCRIPTEN_BUILD)
     "--preload-file"
     "${CMAKE_SOURCE_DIR}/bin@/"
     "-lidbfs.js"
+    "-pthread"
+    "SHELL:-sPTHREAD_POOL_SIZE=4"
   )
 
   # Stamp sw.js with the build timestamp so each build gets a fresh SW cache
