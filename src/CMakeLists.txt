@@ -867,8 +867,6 @@ if(EMSCRIPTEN_BUILD)
     "SHELL:-s USE_SQLITE3=1"
   )
   target_compile_options(xmoto PRIVATE ${EM_PORT_FLAGS})
-  # pthreads: required for ENABLE_THREADING=ON; enables SharedArrayBuffer in browser
-  target_compile_options(xmoto PRIVATE -pthread)
 
   target_include_directories(xmoto PRIVATE
     "${CMAKE_SOURCE_DIR}/vendor/libxml2/include"
@@ -894,7 +892,6 @@ if(EMSCRIPTEN_BUILD)
     "--preload-file"
     "${CMAKE_SOURCE_DIR}/bin@/"
     "-lidbfs.js"
-    "-pthread"
     "SHELL:-sPTHREAD_POOL_SIZE=4"
   )
 
