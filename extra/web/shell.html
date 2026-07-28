@@ -3,7 +3,6 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <!-- COI handled at bottom of body; no head script needed -->
   <title>X-Moto Web</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -224,6 +223,24 @@
 
     window.onerror = function(msg, src, l, c, err) {
       if (typeof err === 'number' || /^\d+$/.test(msg)) return; /* Emscripten internals */
+
+      /* Special case: SharedArrayBuffer not defined means the page loaded
+         without cross-origin isolation (COOP+COEP headers).  Our sw.js
+         injects those headers, but the SW must be active first.  Silently
+         register the SW, wait for it, and reload — user sees the loading
+         screen briefly then the game starts on the second load.          */
+      if (msg && msg.indexOf('SharedArrayBuffer') !== -1) {
+        if ('serviceWorker' in navigator && !sessionStorage.getItem('xm-coi')) {
+          sessionStorage.setItem('xm-coi', '1');
+          loadSt.textContent = 'Enabling threading\u2026 reloading';
+          navigator.serviceWorker.register('./sw.js')
+            .then(function() { return navigator.serviceWorker.ready; })
+            .then(function() { location.reload(); })
+            .catch(function(e) { console.warn('[xmoto] COI SW failed:', e); });
+        }
+        return true; /* suppress error UI */
+      }
+
       /* Show the crash message in the error bar AND log the full stack */
       errorBar.textContent = 'Crash: ' + msg;
       errorBar.style.display = 'block';
@@ -236,58 +253,14 @@
     });
   </script>
   <script>
-    /*
-     * Cross-Origin Isolation + game loader.
-     *
-     * WASM pthreads require SharedArrayBuffer, which requires COOP+COEP
-     * headers (crossOriginIsolated=true). Our sw.js injects those headers,
-     * but the SW must be active before the navigation that needs isolation.
-     *
-     * Flow:
-     *  - If SharedArrayBuffer IS available: register SW (keep cache fresh)
-     *    and load xmoto.js.
-     *  - If SharedArrayBuffer is NOT available and SW not yet tried:
-     *    register SW, wait for it to become ready, then reload.
-     *    sessionStorage 'xm-coi' flag prevents reload loops.
-     *  - If SharedArrayBuffer is NOT available and we already reloaded:
-     *    show an error (browser doesn't support COI or SW failed).
-     */
-    (function() {
-      var hasSAB = typeof SharedArrayBuffer !== 'undefined';
-
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('./sw.js').catch(function(e) {
-          console.warn('[xmoto] SW registration failed:', e);
-        });
-      }
-
-      if (hasSAB) {
-        /* Normal path: load the game. */
-        var s = document.createElement('script');
-        s.src = 'xmoto.js';
-        document.body.appendChild(s);
-        return;
-      }
-
-      /* SharedArrayBuffer not yet available — SW needs to activate first. */
-      if (sessionStorage.getItem('xm-coi')) {
-        /* Already reloaded once and still no SAB: give up. */
-        document.getElementById('loading-status').textContent =
-          'Cross-origin isolation unavailable. '
-          + 'Try Chrome, or clear site data and reload.';
-        console.warn('[xmoto] crossOriginIsolated=false after SW reload');
-        return;
-      }
-
-      /* First attempt: register SW and reload after it activates. */
-      sessionStorage.setItem('xm-coi', '1');
-      document.getElementById('loading-status').textContent =
-        'Enabling threading\u2026 reloading';
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.ready
-          .then(function() { location.reload(); });
-      }
-    })();
+    /* Register SW for caching + COI header injection.
+       COI reload on SharedArrayBuffer crash is handled in window.onerror. */
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(function(e) {
+        console.warn('[xmoto] SW registration failed:', e);
+      });
+    }
   </script>
+  {{{ SCRIPT }}}
 </body>
 </html>
