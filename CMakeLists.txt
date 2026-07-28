@@ -32,11 +32,6 @@ include(CMake/mxe.cmake)
 if(EMSCRIPTEN_BUILD)
   add_compile_options(-fwasm-exceptions)
   add_link_options(-fwasm-exceptions)
-  # -pthread must also be applied globally: all translation units (including
-  # vendor libs) must agree on atomics/thread-local-storage features or
-  # wasm-ld will reject the link with a feature-mismatch error.
-  add_compile_options(-pthread)
-  add_link_options(-pthread)
 endif()
 
 add_subdirectory(src)
