@@ -18,9 +18,7 @@ if(EMSCRIPTEN_BUILD)
   set(ENABLE_NETWORK   OFF CACHE BOOL "" FORCE)
   # WWW (level/highscore downloads) enabled via JS XHR instead of curl
   set(ENABLE_WWW       ON  CACHE BOOL "" FORCE)
-  # Threading disabled: pthreads require blob URL workers which Firefox
-  # blocks under COEP; use synchronous fallback on emscripten instead.
-  set(ENABLE_THREADING OFF CACHE BOOL "" FORCE)
+  # Threading enabled via emscripten pthreads (-pthread) + COI service worker
   set(ENABLE_SERVER    OFF CACHE BOOL "" FORCE)
   set(USE_GETTEXT      OFF CACHE BOOL "" FORCE)
   set(PREFER_SYSTEM_XDG OFF CACHE BOOL "" FORCE)
@@ -894,6 +892,7 @@ if(EMSCRIPTEN_BUILD)
     "--preload-file"
     "${CMAKE_SOURCE_DIR}/bin@/"
     "-lidbfs.js"
+    "SHELL:-sPTHREAD_POOL_SIZE=0"
   )
 
   # Stamp sw.js with the build timestamp so each build gets a fresh SW cache

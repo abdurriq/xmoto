@@ -63,12 +63,7 @@ int XMThread::run(void *pThreadInstance) {
 }
 
 void XMThread::startThread() {
-#ifdef __EMSCRIPTEN__
-  /* Pthreads disabled for web: blob URL workers are blocked by COEP in
-     Firefox. Run synchronously on the main thread instead; the tab briefly
-     freezes during downloads but the result is stored for waitForThreadEnd. */
-  m_lastRunResult = runInMain();
-#elif ENABLE_THREADING
+#if ENABLE_THREADING
   m_progress = -1;
   m_currentOperation = "";
   m_askThreadToEnd = false;
@@ -90,15 +85,14 @@ int XMThread::runInMain() {
 }
 
 int XMThread::waitForThreadEnd() {
-#ifdef __EMSCRIPTEN__
-  return m_lastRunResult;
-#elif ENABLE_THREADING
+#if ENABLE_THREADING
   int returnValue;
   SDL_WaitThread(m_pThread, &returnValue);
   m_pThread = NULL;
   m_isRunning = false;
   return returnValue;
 #else
+  /* Synchronous path: thread already ran in startThread(). */
   return m_lastRunResult;
 #endif
 }
@@ -126,7 +120,7 @@ void XMThread::killThread() {
 }
 
 void XMThread::sleepThread() {
-#if ENABLE_THREADING && !defined(__EMSCRIPTEN__)
+#if ENABLE_THREADING
   SDL_LockMutex(m_sleepMutex);
   m_isSleeping = true;
   m_askThreadToSleep = false;
