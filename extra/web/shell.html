@@ -276,7 +276,15 @@
   </script>
   <script>
     /* Register SW for caching + COI header injection.
-       COI reload on SharedArrayBuffer crash is handled in window.onerror. */
+       COI reload on SharedArrayBuffer crash is handled in window.onerror.
+
+       Reset the xm-coi retry counter whenever the page loads with
+       crossOriginIsolated=true — this means the SW is working and COI is
+       active.  Without this reset, Ctrl+Shift+R would exhaust the 2-attempt
+       limit and leave the page stuck on the loading screen.               */
+    if (typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated) {
+      sessionStorage.removeItem('xm-coi');
+    }
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('./sw.js').catch(function(e) {
         console.warn('[xmoto] SW registration failed:', e);
