@@ -161,21 +161,25 @@
 
       preRun: [function() {
         /* Mount /xmoto-user as IDBFS before main() — no Asyncify needed */
+        console.log('[xmoto] preRun: adding idbfs-init dependency');
         Module.addRunDependency('idbfs-init');
         try { FS.mkdir('/xmoto-user'); } catch(e) {}
+        console.log('[xmoto] preRun: mounting IDBFS');
         var idbTimeout = setTimeout(function() {
-          console.warn('[xmoto] IDBFS init timeout, starting without saved data');
+          console.warn('[xmoto] IDBFS init timeout — starting without saved data');
           Module.removeRunDependency('idbfs-init');
         }, 5000);
         try {
           FS.mount(IDBFS, {}, '/xmoto-user');
+          console.log('[xmoto] preRun: IDBFS mounted, calling syncfs');
           FS.syncfs(true, function(err) {
             clearTimeout(idbTimeout);
             if (err) console.warn('[xmoto] IDBFS read error:', err);
+            console.log('[xmoto] preRun: syncfs complete, removing dependency');
             Module.removeRunDependency('idbfs-init');
           });
         } catch(e) {
-          console.warn('[xmoto] IDBFS mount failed:', e);
+          console.warn('[xmoto] IDBFS mount/syncfs failed:', e);
           clearTimeout(idbTimeout);
           Module.removeRunDependency('idbfs-init');
         }
@@ -239,23 +243,24 @@
          without cross-origin isolation (COOP+COEP headers).  Our sw.js
          injects those headers, but the SW must be active first.  Silently
          register the SW, wait for it, and reload — user sees the loading
-         screen briefly then the game starts on the second load.
-         Use a retry counter (not a binary flag) so that Ctrl+Shift+R
-         (which bypasses the SW) can trigger the reload again.          */
+         screen briefly then the game starts on the second load.          */
       if (msg && msg.indexOf('SharedArrayBuffer') !== -1) {
-        var n = parseInt(sessionStorage.getItem('xm-coi') || '0');
-        sessionStorage.setItem('xm-coi', String(n + 1));
-        if (n < 2 && 'serviceWorker' in navigator) {
+        if ('serviceWorker' in navigator && !sessionStorage.getItem('xm-coi')) {
+          sessionStorage.setItem('xm-coi', '1');
           loadSt.textContent = 'Enabling threading\u2026 reloading';
           navigator.serviceWorker.register('./sw.js')
             .then(function() { return navigator.serviceWorker.ready; })
             .then(function() { location.reload(); })
             .catch(function(e) { console.warn('[xmoto] COI SW failed:', e); });
-        } else {
-          loadSt.textContent = 'SharedArrayBuffer unavailable. '
-            + 'Try Chrome, Firefox 119+, or clear site data.';
         }
         return true; /* suppress error UI */
+      }
+
+      /* Worker thread failure (e.g. SDL audio thread on Firefox) —
+         non-critical: suppress so the game continues without that thread. */
+      if (msg && msg.indexOf('[object Event]') !== -1) {
+        console.warn('[xmoto] Worker thread error (non-critical, game continues)');
+        return true;
       }
 
       /* Show the crash message in the error bar AND log the full stack */
