@@ -3,39 +3,20 @@
  *
  * Two responsibilities:
  *
- * 1. Cross-Origin Isolation (COI): inject COOP + COEP headers so that
- *    SharedArrayBuffer (required for WASM pthreads) is available.
- *    - Navigation (xmoto.html): COOP=same-origin + COEP=credentialless
- *    - All served resources: CORP=cross-origin
- *    We use COEP=credentialless (not require-corp) so that cross-origin
- *    XHR for level downloads still works without the remote server
- *    needing to send CORP headers.
+ * 1. Cross-Origin Isolation (COI): inject COOP + COEP=credentialless on the
+ *    HTML navigation response so crossOriginIsolated=true in the page.
+ *    With COEP=credentialless, same-origin assets need no extra headers —
+ *    only the page itself needs COOP+COEP.  We do NOT modify asset responses
+ *    to avoid breaking Content-Encoding (GitHub Pages serves assets gzip-
+ *    compressed; copying headers into a new Response can cause browsers to
+ *    try to decompress the already-compressed body a second time).
  *
- * 2. Build-locked caching: xmoto.data / xmoto.js / xmoto.wasm are always
- *    served from the same build so they can never version-mismatch.
- *    Cache name includes a build timestamp; old caches are deleted on
- *    activate.  Ctrl+Shift+R bypasses the SW entirely.
+ * 2. Build-locked caching: xmoto.data / xmoto.js / xmoto.wasm are served
+ *    from cache so they always match the same build.  New build → new CACHE
+ *    name → old cache deleted on activate.  Ctrl+Shift+R bypasses the SW.
  */
 
 const CACHE = 'xmoto-@BUILD_TS@';
-
-// Add cross-origin isolation headers to a Response.
-// isNav=true  → also set COOP + COEP (needed on the HTML page itself)
-// isNav=false → CORP only (allow the resource to be used cross-origin)
-function coiWrap(response, isNav) {
-  if (!response || response.status === 0) return response;
-  const h = new Headers(response.headers);
-  if (isNav) {
-    h.set('Cross-Origin-Opener-Policy', 'same-origin');
-    h.set('Cross-Origin-Embedder-Policy', 'credentialless');
-  }
-  h.set('Cross-Origin-Resource-Policy', 'cross-origin');
-  return new Response(response.body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers: h,
-  });
-}
 
 self.addEventListener('install', () => self.skipWaiting());
 
@@ -48,32 +29,43 @@ self.addEventListener('activate', evt =>
 );
 
 self.addEventListener('fetch', evt => {
-  const req = evt.request;
-  const p   = new URL(req.url).pathname;
+  const req  = evt.request;
+  const p    = new URL(req.url).pathname;
   const isNav  = req.mode === 'navigate';
   const isJs   = p.endsWith('.js')   && !p.endsWith('sw.js');
   const isWasm = p.endsWith('.wasm');
   const isData = p.endsWith('.data');
 
-  // Navigation: add COOP+COEP to the HTML page (no caching needed for HTML).
+  // Navigation: fetch xmoto.html fresh and add COOP+COEP headers.
+  // These two headers are all that is needed to set crossOriginIsolated=true
+  // when COEP=credentialless is used (no CORP needed on same-origin assets).
   if (isNav) {
-    evt.respondWith(fetch(req).then(res => coiWrap(res, true)));
+    evt.respondWith(
+      fetch(req).then(function(res) {
+        var h = new Headers(res.headers);
+        h.set('Cross-Origin-Opener-Policy', 'same-origin');
+        h.set('Cross-Origin-Embedder-Policy', 'credentialless');
+        return new Response(res.body, {
+          status: res.status, statusText: res.statusText, headers: h
+        });
+      })
+    );
     return;
   }
 
-  // Let all non-asset requests pass through untouched.
+  // Assets: serve from cache as-is.  Do NOT modify the response (would break
+  // Content-Encoding handling for gzip-compressed assets from GitHub Pages).
   if (!isJs && !isWasm && !isData) return;
 
-  // Assets (.js/.wasm/.data): serve from cache with CORP header.
   evt.respondWith(
-    caches.open(CACHE).then(cache =>
-      cache.match(req.url).then(cached => {
-        if (cached) return coiWrap(cached, false);
-        return fetch(req).then(res => {
+    caches.open(CACHE).then(function(cache) {
+      return cache.match(req.url).then(function(cached) {
+        if (cached) return cached;
+        return fetch(req).then(function(res) {
           if (res.ok) cache.put(req.url, res.clone());
-          return coiWrap(res, false);
+          return res;
         });
-      })
-    )
+      });
+    })
   );
 });
