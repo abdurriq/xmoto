@@ -164,7 +164,14 @@
         Module.addRunDependency('idbfs-init');
         try { FS.mkdir('/xmoto-user'); } catch(e) {}
         FS.mount(IDBFS, {}, '/xmoto-user');
+        /* Safety timeout: if IndexedDB hangs (common in Firefox private mode
+           or with pthreads), start the game anyway after 5 s.            */
+        var idbTimeout = setTimeout(function() {
+          console.warn('[xmoto] IDBFS init timeout, starting without saved data');
+          Module.removeRunDependency('idbfs-init');
+        }, 5000);
         FS.syncfs(true, function(err) {
+          clearTimeout(idbTimeout);
           if (err) console.warn('[xmoto] IDBFS read error:', err);
           Module.removeRunDependency('idbfs-init');
         });
