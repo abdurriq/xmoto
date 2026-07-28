@@ -63,21 +63,24 @@ int XMThread::run(void *pThreadInstance) {
 }
 
 void XMThread::startThread() {
-#if ENABLE_THREADING
+#ifdef __EMSCRIPTEN__
+  /* Worker script load failures cause SDL_WaitThread to hang indefinitely.
+     Run synchronously on the main thread instead — brief freeze during
+     downloads, but no deadlocks.  The WASM is still built with -pthread
+     for SDL internals; XMThread tasks just don't create workers.       */
+  m_lastRunResult = runInMain();
+#elif ENABLE_THREADING
   m_progress = -1;
   m_currentOperation = "";
   m_askThreadToEnd = false;
   m_isRunning = true; // set before running the thread
   m_pThread = SDL_CreateThread(&XMThread::run, NULL, this);
   if (!m_pThread) {
-    /* Thread creation failed (e.g. browser security policy). Fall back to
-       running synchronously so the caller can still proceed.             */
     LogWarning("SDL_CreateThread failed, running synchronously");
     m_isRunning = false;
     m_lastRunResult = runInMain();
   }
 #else
-  /* Threading disabled: run synchronously on the calling thread. */
   m_lastRunResult = runInMain();
 #endif
 }
@@ -92,24 +95,18 @@ int XMThread::runInMain() {
 }
 
 int XMThread::waitForThreadEnd() {
-#if ENABLE_THREADING
-  if (!m_pThread) {
-    /* Thread was never started or already cleaned up (e.g. sync fallback). */
-    return m_lastRunResult;
-  }
-  /* If the thread is sleeping on a condvar (e.g. waiting for user input on
-     a download dialog that the user dismissed), wake it first so it can
-     exit cleanly instead of blocking SDL_WaitThread forever.             */
-  if (m_isSleeping) {
-    unsleepThread("");
-  }
+#ifdef __EMSCRIPTEN__
+  /* Synchronous path: runInMain() already completed in startThread(). */
+  return m_lastRunResult;
+#elif ENABLE_THREADING
+  if (!m_pThread) return m_lastRunResult;
+  if (m_isSleeping) unsleepThread("");
   int returnValue;
   SDL_WaitThread(m_pThread, &returnValue);
   m_pThread = NULL;
   m_isRunning = false;
   return returnValue;
 #else
-  /* Synchronous path: thread already ran in startThread(). */
   return m_lastRunResult;
 #endif
 }
@@ -137,14 +134,13 @@ void XMThread::killThread() {
 }
 
 void XMThread::sleepThread() {
-#if ENABLE_THREADING
+#if ENABLE_THREADING && !defined(__EMSCRIPTEN__)
   SDL_LockMutex(m_sleepMutex);
   m_isSleeping = true;
   m_askThreadToSleep = false;
   SDL_CondWait(m_sleepCond, m_sleepMutex);
   SDL_UnlockMutex(m_sleepMutex);
 #else
-  /* No second thread to signal; return immediately. */
   m_isSleeping = false;
 #endif
 }
