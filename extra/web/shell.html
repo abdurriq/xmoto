@@ -161,20 +161,28 @@
 
       preRun: [function() {
         /* Mount /xmoto-user as IDBFS before main() — no Asyncify needed */
+        console.log('[xmoto] preRun: adding idbfs-init dependency');
         Module.addRunDependency('idbfs-init');
         try { FS.mkdir('/xmoto-user'); } catch(e) {}
-        FS.mount(IDBFS, {}, '/xmoto-user');
-        /* Safety timeout: if IndexedDB hangs (common in Firefox private mode
-           or with pthreads), start the game anyway after 5 s.            */
+        console.log('[xmoto] preRun: mounting IDBFS');
         var idbTimeout = setTimeout(function() {
-          console.warn('[xmoto] IDBFS init timeout, starting without saved data');
+          console.warn('[xmoto] IDBFS init timeout — starting without saved data');
           Module.removeRunDependency('idbfs-init');
         }, 5000);
-        FS.syncfs(true, function(err) {
+        try {
+          FS.mount(IDBFS, {}, '/xmoto-user');
+          console.log('[xmoto] preRun: IDBFS mounted, calling syncfs');
+          FS.syncfs(true, function(err) {
+            clearTimeout(idbTimeout);
+            if (err) console.warn('[xmoto] IDBFS read error:', err);
+            console.log('[xmoto] preRun: syncfs complete, removing dependency');
+            Module.removeRunDependency('idbfs-init');
+          });
+        } catch(e) {
+          console.warn('[xmoto] IDBFS mount/syncfs failed:', e);
           clearTimeout(idbTimeout);
-          if (err) console.warn('[xmoto] IDBFS read error:', err);
           Module.removeRunDependency('idbfs-init');
-        });
+        }
       }],
 
       setStatus: function(text) {
