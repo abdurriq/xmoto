@@ -5,34 +5,31 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script>
     /* Cross-Origin Isolation bootstrap.
-       WASM pthreads require SharedArrayBuffer which requires COI headers
-       (COOP + COEP).  Our sw.js injects these headers on every response,
-       but the SW must be active BEFORE the page load that needs isolation.
-       Strategy: if not yet isolated, register the SW and reload once.
-       sessionStorage flag prevents an infinite reload loop.           */
+       WASM pthreads need SharedArrayBuffer which requires COOP+COEP headers.
+       Our sw.js injects these, but the SW must be active BEFORE the page
+       load.  If not yet isolated:
+         1. Register sw.js now (async).
+         2. Replace the page with a placeholder via document.open() — this
+            stops xmoto.js from loading and crashing on SharedArrayBuffer.
+         3. When the SW activates (ready promise), reload.
+         4. sessionStorage flag prevents an infinite reload loop.        */
     (function() {
-      if (typeof crossOriginIsolated === 'undefined') return; // old browser
-      if (crossOriginIsolated) return;                        // already isolated
-      if (!('serviceWorker' in navigator)) return;            // no SW support
-      if (sessionStorage.getItem('xm-coi-reload')) return;   // already tried
-      sessionStorage.setItem('xm-coi-reload', '1');
-      navigator.serviceWorker.register('./sw.js').then(function(reg) {
-        function doReload() { window.location.reload(); }
-        /* SW might already be installed (waiting or active). */
-        var sw = reg.installing || reg.waiting;
-        if (sw) {
-          sw.addEventListener('statechange', function() {
-            if (sw.state === 'activated') doReload();
-          });
-        } else if (reg.active) {
-          doReload();
-        }
-        /* Also catch the controllerchange event in case activation fires
-           before the state-change listener is attached.               */
-        navigator.serviceWorker.addEventListener('controllerchange', doReload);
-      }).catch(function(e) {
-        console.warn('[xmoto] COI SW registration failed:', e);
-      });
+      if (typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated) return;
+      if (!('serviceWorker' in navigator)) return;
+      if (sessionStorage.getItem('xm-coi')) return; // already reloaded, give up
+      sessionStorage.setItem('xm-coi', '1');
+      navigator.serviceWorker.register('./sw.js')
+        .then(function() { return navigator.serviceWorker.ready; })
+        .then(function() { location.reload(); })
+        .catch(function(e) { console.warn('[xmoto] COI SW failed:', e); });
+      /* Replace the page to prevent xmoto.js from executing without SAB. */
+      document.open();
+      document.write('<!DOCTYPE html><html><head><meta charset=utf-8>'
+        + '<style>body{background:#111;color:#eee;font:1rem sans-serif;'
+        + 'display:flex;align-items:center;justify-content:center;'
+        + 'height:100vh;margin:0}</style></head>'
+        + '<body>X-Moto \u2014 enabling threading\u2026 reloading</body></html>');
+      document.close();
     })();
   </script>
   <title>X-Moto Web</title>
