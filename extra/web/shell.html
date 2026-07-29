@@ -160,28 +160,18 @@
       webglContextAttributes: { powerPreference: 'high-performance', antialias: false },
 
       preRun: [function() {
-        /* Mount /xmoto-user as IDBFS before main() — no Asyncify needed */
-        console.log('[xmoto] preRun: adding idbfs-init dependency');
-        Module.addRunDependency('idbfs-init');
+        /* Mount /xmoto-user as IDBFS — fire-and-forget, no run dependency.
+           FS.syncfs completes in <100ms, well before C++ init touches files.
+           We skip addRunDependency to avoid blocking onRuntimeInitialized
+           when WASM shared-memory compilation delays setTimeout callbacks. */
         try { FS.mkdir('/xmoto-user'); } catch(e) {}
-        console.log('[xmoto] preRun: mounting IDBFS');
-        var idbTimeout = setTimeout(function() {
-          console.warn('[xmoto] IDBFS init timeout — starting without saved data');
-          Module.removeRunDependency('idbfs-init');
-        }, 5000);
         try {
           FS.mount(IDBFS, {}, '/xmoto-user');
-          console.log('[xmoto] preRun: IDBFS mounted, calling syncfs');
           FS.syncfs(true, function(err) {
-            clearTimeout(idbTimeout);
             if (err) console.warn('[xmoto] IDBFS read error:', err);
-            console.log('[xmoto] preRun: syncfs complete, removing dependency');
-            Module.removeRunDependency('idbfs-init');
           });
         } catch(e) {
-          console.warn('[xmoto] IDBFS mount/syncfs failed:', e);
-          clearTimeout(idbTimeout);
-          Module.removeRunDependency('idbfs-init');
+          console.warn('[xmoto] IDBFS mount failed:', e);
         }
       }],
 
