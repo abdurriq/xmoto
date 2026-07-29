@@ -195,6 +195,9 @@
       onRuntimeInitialized: function() {
         /* Hide loading screen and give canvas focus immediately — the game
            renders its own first frame and no click-to-start is required.  */
+        /* Game started successfully — reset the COI retry counter so a future
+           Ctrl+Shift+R or hard refresh can trigger the reload again.        */
+        sessionStorage.removeItem('xm-coi');
         loading.classList.add('hidden');
         bar.style.width = '100%';
         canvas.focus();
@@ -245,13 +248,19 @@
          register the SW, wait for it, and reload — user sees the loading
          screen briefly then the game starts on the second load.          */
       if (msg && msg.indexOf('SharedArrayBuffer') !== -1) {
-        if ('serviceWorker' in navigator && !sessionStorage.getItem('xm-coi')) {
-          sessionStorage.setItem('xm-coi', '1');
+        /* Use a retry counter so Ctrl+Shift+R (which bypasses SW) always gets
+           another chance. Counter is reset when the game successfully starts. */
+        var n = parseInt(sessionStorage.getItem('xm-coi') || '0');
+        sessionStorage.setItem('xm-coi', String(n + 1));
+        if (n < 5 && 'serviceWorker' in navigator) {
           loadSt.textContent = 'Enabling threading\u2026 reloading';
           navigator.serviceWorker.register('./sw.js')
             .then(function() { return navigator.serviceWorker.ready; })
             .then(function() { location.reload(); })
             .catch(function(e) { console.warn('[xmoto] COI SW failed:', e); });
+        } else {
+          loadSt.textContent = 'SharedArrayBuffer unavailable. '
+            + 'Try Chrome, Firefox 119+, or clear site data.';
         }
         return true; /* suppress error UI */
       }
