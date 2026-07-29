@@ -36,14 +36,20 @@ self.addEventListener('fetch', evt => {
   const isData = p.endsWith('.data');
 
   // Navigation: add COOP+COEP so crossOriginIsolated=true on the page.
+  // Use res.text() so the body is always decoded text regardless of whether
+  // the server sent Content-Encoding: gzip — avoids double-decompress in Safari.
   if (isNav) {
     evt.respondWith(
       fetch(req).then(function(res) {
-        var h = new Headers(res.headers);
-        h.set('Cross-Origin-Opener-Policy', 'same-origin');
-        h.set('Cross-Origin-Embedder-Policy', 'credentialless');
-        return new Response(res.body, {
-          status: res.status, statusText: res.statusText, headers: h
+        return res.text().then(function(body) {
+          var h = new Headers(res.headers);
+          h.set('Cross-Origin-Opener-Policy', 'same-origin');
+          h.set('Cross-Origin-Embedder-Policy', 'credentialless');
+          h.delete('Content-Encoding'); // body is decoded, no longer gzip
+          h.delete('Content-Length');   // length changed after decoding
+          return new Response(body, {
+            status: res.status, statusText: res.statusText, headers: h
+          });
         });
       })
     );
