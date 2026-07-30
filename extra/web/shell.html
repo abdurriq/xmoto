@@ -252,6 +252,7 @@
           loadSt.textContent = 'Enabling threading\u2026 reloading';
           debug('registering SW, waiting for control');
           navigator.serviceWorker.register('./sw.js').then(function(reg) {
+            debug('SW reg state=' + (reg.installing ? 'installing' : reg.waiting ? 'waiting' : reg.active ? 'active' : '?'));
             var navigated = false;
             function go() {
               if (navigated) return;
@@ -260,11 +261,18 @@
               window.location.replace(window.location.href);
             }
             navigator.serviceWorker.addEventListener('controllerchange', go);
-            // Fallback: Safari doesn't always fire controllerchange
             navigator.serviceWorker.ready.then(function() {
+              debug('SW ready, scheduling nav');
               setTimeout(go, 500);
             });
-          }).catch(function(e) { console.warn('[xmoto] COI SW failed:', e); });
+            // Extra fallback: if ready never resolves, navigate after 5s
+            setTimeout(function() {
+              debug('5s fallback nav');
+              go();
+            }, 5000);
+          }).catch(function(e) {
+            debug('SW reg failed: ' + e);
+          });
         } else {
           loadSt.textContent = 'SharedArrayBuffer unavailable. '
             + 'Try Chrome, Firefox 119+, or clear site data.';
