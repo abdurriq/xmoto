@@ -250,10 +250,18 @@
         sessionStorage.setItem('xm-coi', String(n + 1));
         if (n < 5 && 'serviceWorker' in navigator) {
           loadSt.textContent = 'Enabling threading\u2026 reloading';
-          navigator.serviceWorker.register('./sw.js')
-            .then(function() { return navigator.serviceWorker.ready; })
-            .then(function() { window.location.replace(window.location.href); })
-            .catch(function(e) { console.warn('[xmoto] COI SW failed:', e); });
+          debug('registering SW, waiting for control');
+          navigator.serviceWorker.register('./sw.js').then(function() {
+            function go() {
+              debug('SW controlling, navigating');
+              window.location.replace(window.location.href);
+            }
+            if (navigator.serviceWorker.controller) {
+              go();
+            } else {
+              navigator.serviceWorker.addEventListener('controllerchange', go);
+            }
+          }).catch(function(e) { console.warn('[xmoto] COI SW failed:', e); });
         } else {
           loadSt.textContent = 'SharedArrayBuffer unavailable. '
             + 'Try Chrome, Firefox 119+, or clear site data.';
