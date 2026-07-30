@@ -246,7 +246,7 @@
           loadSt.textContent = 'Enabling threading\u2026 reloading';
           navigator.serviceWorker.register('./sw.js')
             .then(function() { return navigator.serviceWorker.ready; })
-            .then(function() { location.reload(); })
+            .then(function() { window.location.replace(window.location.href); })
             .catch(function(e) { console.warn('[xmoto] COI SW failed:', e); });
         } else {
           loadSt.textContent = 'SharedArrayBuffer unavailable. '
