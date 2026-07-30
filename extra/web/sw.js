@@ -56,14 +56,7 @@ self.addEventListener('fetch', evt => {
     return;
   }
 
-  // .data is large (~64 MB compressed); Safari's Response.clone() is unreliable
-  // for large bodies. Fetch .data directly without caching.
-  if (isData) {
-    evt.respondWith(fetch(req));
-    return;
-  }
-
-  // .js and .wasm: cache so .js and .wasm always come from the same build.
+  // Only cache .js and .wasm for version-locking; let .data bypass the SW.
   if (!isJs && !isWasm) return;
 
   evt.respondWith(
