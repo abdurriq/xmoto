@@ -56,7 +56,15 @@ self.addEventListener('fetch', evt => {
     return;
   }
 
-  if (!isJs && !isWasm && !isData) return;
+  // .data is large (~64 MB compressed); Safari's Response.clone() is unreliable
+  // for large bodies. Fetch .data directly without caching.
+  if (isData) {
+    evt.respondWith(fetch(req));
+    return;
+  }
+
+  // .js and .wasm: cache so .js and .wasm always come from the same build.
+  if (!isJs && !isWasm) return;
 
   evt.respondWith(
     caches.open(CACHE).then(function(cache) {
@@ -65,8 +73,7 @@ self.addEventListener('fetch', evt => {
         return (fromNet ? fetch(req) : Promise.resolve(cached))
           .then(function(res) {
             if (fromNet && res.ok) cache.put(req.url, res.clone());
-            // Add CORP to JS/WASM so Firefox pthread workers can load them.
-            if ((isJs || isWasm) && res.ok) {
+            if (res.ok) {
               var h = new Headers(res.headers);
               h.set('Cross-Origin-Resource-Policy', 'cross-origin');
               return new Response(res.body, {
