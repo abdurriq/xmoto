@@ -251,16 +251,19 @@
         if (n < 5 && 'serviceWorker' in navigator) {
           loadSt.textContent = 'Enabling threading\u2026 reloading';
           debug('registering SW, waiting for control');
-          navigator.serviceWorker.register('./sw.js').then(function() {
+          navigator.serviceWorker.register('./sw.js').then(function(reg) {
+            var navigated = false;
             function go() {
-              debug('SW controlling, navigating');
+              if (navigated) return;
+              navigated = true;
+              debug('navigating');
               window.location.replace(window.location.href);
             }
-            if (navigator.serviceWorker.controller) {
-              go();
-            } else {
-              navigator.serviceWorker.addEventListener('controllerchange', go);
-            }
+            navigator.serviceWorker.addEventListener('controllerchange', go);
+            // Fallback: Safari doesn't always fire controllerchange
+            navigator.serviceWorker.ready.then(function() {
+              setTimeout(go, 500);
+            });
           }).catch(function(e) { console.warn('[xmoto] COI SW failed:', e); });
         } else {
           loadSt.textContent = 'SharedArrayBuffer unavailable. '
