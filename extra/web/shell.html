@@ -84,6 +84,7 @@
       <h1>X-Moto</h1>
       <div id="loading-status">Loading…</div>
       <div id="progress-wrap"><div id="progress-bar"></div></div>
+      <div id="loading-debug" style="font-size:0.65rem;color:#444;margin-top:0.5rem"></div>
     </div>
   </div>
   <div id="error-bar"></div>
@@ -93,6 +94,15 @@
     var loadSt    = document.getElementById('loading-status');
     var bar       = document.getElementById('progress-bar');
     var errorBar  = document.getElementById('error-bar');
+    var dbg       = document.getElementById('loading-debug');
+    function debug(msg) {
+      var ts = (performance.now()/1000).toFixed(1);
+      dbg.textContent = '[' + ts + 's] ' + msg;
+      console.log('[xmoto dbg]', ts + 's', msg);
+    }
+    debug('coi=' + (typeof crossOriginIsolated !== 'undefined' ? crossOriginIsolated : '?')
+      + ' xm-coi=' + (sessionStorage.getItem('xm-coi') || '0')
+      + ' sw=' + ('serviceWorker' in navigator));
     var canvas    = document.getElementById('canvas');
 
     /* Fullscreen toggle */
@@ -160,15 +170,13 @@
       webglContextAttributes: { powerPreference: 'high-performance', antialias: false },
 
       preRun: [function() {
-        /* Mount /xmoto-user as IDBFS — fire-and-forget, no run dependency.
-           FS.syncfs completes in <100ms, well before C++ init touches files.
-           We skip addRunDependency to avoid blocking onRuntimeInitialized
-           when WASM shared-memory compilation delays setTimeout callbacks. */
+        debug('preRun: mounting IDBFS');
         try { FS.mkdir('/xmoto-user'); } catch(e) {}
         try {
           FS.mount(IDBFS, {}, '/xmoto-user');
           FS.syncfs(true, function(err) {
             if (err) console.warn('[xmoto] IDBFS read error:', err);
+            else debug('IDBFS sync done');
           });
         } catch(e) {
           console.warn('[xmoto] IDBFS mount failed:', e);
@@ -183,10 +191,7 @@
       },
 
       onRuntimeInitialized: function() {
-        /* Hide loading screen and give canvas focus immediately — the game
-           renders its own first frame and no click-to-start is required.  */
-        /* Game started successfully — reset the COI retry counter so a future
-           Ctrl+Shift+R or hard refresh can trigger the reload again.        */
+        debug('onRuntimeInitialized ✔');
         sessionStorage.removeItem('xm-coi');
         loading.classList.add('hidden');
         bar.style.width = '100%';
@@ -241,6 +246,7 @@
         /* Use a retry counter so Ctrl+Shift+R (which bypasses SW) always gets
            another chance. Counter is reset when the game successfully starts. */
         var n = parseInt(sessionStorage.getItem('xm-coi') || '0');
+        debug('SAB crash n=' + n + ' coi=' + crossOriginIsolated);
         sessionStorage.setItem('xm-coi', String(n + 1));
         if (n < 5 && 'serviceWorker' in navigator) {
           loadSt.textContent = 'Enabling threading\u2026 reloading';
