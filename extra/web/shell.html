@@ -176,6 +176,7 @@
       },
 
       onRuntimeInitialized: function() {
+        sessionStorage.removeItem('xm-coi');
 
         loading.classList.add('hidden');
         bar.style.width = '100%';
@@ -221,7 +222,26 @@
     window.onerror = function(msg, src, l, c, err) {
       if (typeof err === 'number' || /^\d+$/.test(msg)) return;
 
-      /* Worker thread failure — non-critical, suppress so game continues. */
+      /* SharedArrayBuffer crash = page needs COOP/COEP (Chrome/Firefox only). */
+      if (msg && msg.indexOf('SharedArrayBuffer') !== -1) {
+        var n = parseInt(sessionStorage.getItem('xm-coi') || '0');
+        sessionStorage.setItem('xm-coi', String(n + 1));
+        if (n < 5 && 'serviceWorker' in navigator) {
+          loadSt.textContent = 'Enabling threading\u2026 reloading';
+          navigator.serviceWorker.register('./sw.js').then(function(reg) {
+            var done = false;
+            function go() { if (!done) { done=true; window.location.replace(window.location.href); } }
+            navigator.serviceWorker.addEventListener('controllerchange', go);
+            navigator.serviceWorker.ready.then(function() { setTimeout(go, 500); });
+            setTimeout(go, 5000);
+          }).catch(function(e) { console.warn('[xmoto] SW failed:', e); });
+        } else {
+          loadSt.textContent = 'Threading requires Chrome or Firefox 119+.';
+        }
+        return true;
+      }
+
+      /* Non-critical worker error (e.g. SDL audio thread). */
       if (msg && msg.indexOf('[object Event]') !== -1) {
         console.warn('[xmoto] Worker thread error (non-critical)');
         return true;
