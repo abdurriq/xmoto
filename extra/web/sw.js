@@ -30,7 +30,7 @@ self.addEventListener('activate', evt =>
 self.addEventListener('fetch', evt => {
   const req  = evt.request;
   const p    = new URL(req.url).pathname;
-  const isNav  = req.mode === 'navigate';
+  const isNav  = req.mode === 'navigate' || p.endsWith('.html');
   const isJs   = p.endsWith('.js')   && !p.endsWith('sw.js');
   const isWasm = p.endsWith('.wasm');
   const isData = p.endsWith('.data');

@@ -248,7 +248,7 @@
         var n = parseInt(sessionStorage.getItem('xm-coi') || '0');
         debug('SAB crash n=' + n + ' coi=' + crossOriginIsolated);
         sessionStorage.setItem('xm-coi', String(n + 1));
-        if (n < 5 && 'serviceWorker' in navigator) {
+        if (n < 10 && 'serviceWorker' in navigator) {
           loadSt.textContent = 'Enabling threading\u2026 reloading';
           debug('registering SW, waiting for control');
           navigator.serviceWorker.register('./sw.js').then(function(reg) {
