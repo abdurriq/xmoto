@@ -162,7 +162,8 @@
         try {
           FS.mount(IDBFS, {}, '/xmoto-user');
           FS.syncfs(true, function(err) {
-            if (err) console.warn('[xmoto] IDBFS read error:', err);\n          });
+            if (err) console.warn('[xmoto] IDBFS read error:', err);
+          });
         } catch(e) {
           console.warn('[xmoto] IDBFS mount failed:', e);
         }
