@@ -84,7 +84,7 @@
       <h1>X-Moto</h1>
       <div id="loading-status">Loading…</div>
       <div id="progress-wrap"><div id="progress-bar"></div></div>
-      <div id="loading-debug" style="font-size:0.65rem;color:#444;margin-top:0.5rem"></div>
+      <div id="loading-debug" style="display:none"></div>
     </div>
   </div>
   <div id="error-bar"></div>
@@ -94,19 +94,7 @@
     var loadSt    = document.getElementById('loading-status');
     var bar       = document.getElementById('progress-bar');
     var errorBar  = document.getElementById('error-bar');
-    var dbg       = document.getElementById('loading-debug');
-    function debug(msg) {
-      var ts = (performance.now()/1000).toFixed(1);
-      dbg.textContent = '[' + ts + 's] ' + msg;
-      console.log('[xmoto dbg]', ts + 's', msg);
-    }
-    debug('coi=' + (typeof crossOriginIsolated !== 'undefined' ? crossOriginIsolated : '?')
-      + ' xm-coi=' + (sessionStorage.getItem('xm-coi') || '0')
-      + ' sw=' + ('serviceWorker' in navigator));
-    var canvas    = document.getElementById('canvas');
 
-    /* Fullscreen toggle */
-    document.getElementById('fs-btn').addEventListener('click', function() {
       var wrap = document.getElementById('canvas-wrap');
       if (document.fullscreenElement) {
         document.exitFullscreen();
@@ -170,14 +158,11 @@
       webglContextAttributes: { powerPreference: 'high-performance', antialias: false },
 
       preRun: [function() {
-        debug('preRun: mounting IDBFS');
         try { FS.mkdir('/xmoto-user'); } catch(e) {}
         try {
           FS.mount(IDBFS, {}, '/xmoto-user');
           FS.syncfs(true, function(err) {
-            if (err) console.warn('[xmoto] IDBFS read error:', err);
-            else debug('IDBFS sync done');
-          });
+            if (err) console.warn('[xmoto] IDBFS read error:', err);\n          });
         } catch(e) {
           console.warn('[xmoto] IDBFS mount failed:', e);
         }
@@ -191,8 +176,7 @@
       },
 
       onRuntimeInitialized: function() {
-        debug('onRuntimeInitialized ✔');
-        sessionStorage.removeItem('xm-coi');
+
         loading.classList.add('hidden');
         bar.style.width = '100%';
         canvas.focus();
@@ -235,55 +219,11 @@
     };
 
     window.onerror = function(msg, src, l, c, err) {
-      if (typeof err === 'number' || /^\d+$/.test(msg)) return; /* Emscripten internals */
+      if (typeof err === 'number' || /^\d+$/.test(msg)) return;
 
-      /* Special case: SharedArrayBuffer not defined means the page loaded
-         without cross-origin isolation (COOP+COEP headers).  Our sw.js
-         injects those headers, but the SW must be active first.  Silently
-         register the SW, wait for it, and reload — user sees the loading
-         screen briefly then the game starts on the second load.          */
-      if (msg && msg.indexOf('SharedArrayBuffer') !== -1) {
-        /* Use a retry counter so Ctrl+Shift+R (which bypasses SW) always gets
-           another chance. Counter is reset when the game successfully starts. */
-        var n = parseInt(sessionStorage.getItem('xm-coi') || '0');
-        debug('SAB crash n=' + n + ' coi=' + crossOriginIsolated);
-        sessionStorage.setItem('xm-coi', String(n + 1));
-        if (n < 10 && 'serviceWorker' in navigator) {
-          loadSt.textContent = 'Enabling threading\u2026 reloading';
-          debug('registering SW, waiting for control');
-          navigator.serviceWorker.register('./sw.js').then(function(reg) {
-            debug('SW reg state=' + (reg.installing ? 'installing' : reg.waiting ? 'waiting' : reg.active ? 'active' : '?'));
-            var navigated = false;
-            function go() {
-              if (navigated) return;
-              navigated = true;
-              debug('navigating');
-              window.location.replace(window.location.href);
-            }
-            navigator.serviceWorker.addEventListener('controllerchange', go);
-            navigator.serviceWorker.ready.then(function() {
-              debug('SW ready, scheduling nav');
-              setTimeout(go, 500);
-            });
-            // Extra fallback: if ready never resolves, navigate after 5s
-            setTimeout(function() {
-              debug('5s fallback nav');
-              go();
-            }, 5000);
-          }).catch(function(e) {
-            debug('SW reg failed: ' + e);
-          });
-        } else {
-          loadSt.textContent = 'SharedArrayBuffer unavailable. '
-            + 'Try Chrome, Firefox 119+, or clear site data.';
-        }
-        return true; /* suppress error UI */
-      }
-
-      /* Worker thread failure (e.g. SDL audio thread on Firefox) —
-         non-critical: suppress so the game continues without that thread. */
+      /* Worker thread failure — non-critical, suppress so game continues. */
       if (msg && msg.indexOf('[object Event]') !== -1) {
-        console.warn('[xmoto] Worker thread error (non-critical, game continues)');
+        console.warn('[xmoto] Worker thread error (non-critical)');
         return true;
       }
 
@@ -299,16 +239,6 @@
     });
   </script>
   <script>
-    /* Register SW for caching + COI header injection.
-       COI reload on SharedArrayBuffer crash is handled in window.onerror.
-
-       Reset the xm-coi retry counter whenever the page loads with
-       crossOriginIsolated=true — this means the SW is working and COI is
-       active.  Without this reset, Ctrl+Shift+R would exhaust the 2-attempt
-       limit and leave the page stuck on the loading screen.               */
-    if (typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated) {
-      sessionStorage.removeItem('xm-coi');
-    }
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('./sw.js').catch(function(e) {
         console.warn('[xmoto] SW registration failed:', e);

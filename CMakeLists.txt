@@ -32,10 +32,6 @@ include(CMake/mxe.cmake)
 if(EMSCRIPTEN_BUILD)
   add_compile_options(-fwasm-exceptions)
   add_link_options(-fwasm-exceptions)
-  # -pthread applied globally so all translation units share the same
-  # atomics ABI; required for SDL audio threads and future XMThread threads.
-  add_compile_options(-pthread)
-  add_link_options(-pthread)
 endif()
 
 add_subdirectory(src)
