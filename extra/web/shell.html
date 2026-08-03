@@ -94,7 +94,10 @@
     var loadSt    = document.getElementById('loading-status');
     var bar       = document.getElementById('progress-bar');
     var errorBar  = document.getElementById('error-bar');
+    var canvas    = document.getElementById('canvas');
 
+    /* Fullscreen toggle */
+    document.getElementById('fs-btn').addEventListener('click', function() {
       var wrap = document.getElementById('canvas-wrap');
       if (document.fullscreenElement) {
         document.exitFullscreen();
