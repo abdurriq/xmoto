@@ -892,7 +892,6 @@ if(EMSCRIPTEN_BUILD)
     "--preload-file"
     "${CMAKE_SOURCE_DIR}/bin@/"
     "-lidbfs.js"
-    "SHELL:-sPTHREAD_POOL_SIZE=0"
   )
 
   # Stamp sw.js with the build timestamp so each build gets a fresh SW cache
