@@ -63,7 +63,9 @@ int XMThread::run(void *pThreadInstance) {
 }
 
 void XMThread::startThread() {
-#if ENABLE_THREADING
+#ifdef __EMSCRIPTEN__
+  m_lastRunResult = runInMain();
+#elif ENABLE_THREADING
   m_progress = -1;
   m_currentOperation = "";
   m_askThreadToEnd = false;
@@ -89,7 +91,9 @@ int XMThread::runInMain() {
 }
 
 int XMThread::waitForThreadEnd() {
-#if ENABLE_THREADING
+#ifdef __EMSCRIPTEN__
+  return m_lastRunResult;
+#elif ENABLE_THREADING
   if (!m_pThread) return m_lastRunResult;
   if (m_isSleeping) unsleepThread("");
   int returnValue;
@@ -125,7 +129,7 @@ void XMThread::killThread() {
 }
 
 void XMThread::sleepThread() {
-#if ENABLE_THREADING
+#if !defined(__EMSCRIPTEN__) && ENABLE_THREADING
   SDL_LockMutex(m_sleepMutex);
   m_isSleeping = true;
   m_askThreadToSleep = false;
