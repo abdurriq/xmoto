@@ -243,7 +243,10 @@
             setTimeout(go, 5000);
           }).catch(function(e) { console.warn('[xmoto] SW failed:', e); });
         } else {
-          loadSt.textContent = 'Threading requires Chrome or Firefox 119+.';
+          /* setStatus() will overwrite loadSt — use the error bar instead. */
+          errorBar.textContent = 'Threading requires Chrome or Firefox 119+.';
+          errorBar.style.display = 'block';
+          if (typeof Module !== 'undefined') Module.setStatus = function() {};
         }
         return true;
       }
