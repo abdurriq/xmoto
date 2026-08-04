@@ -178,6 +178,7 @@
       },
 
       onRuntimeInitialized: function() {
+        sessionStorage.removeItem('xm-coi');
         /* Hide loading screen and give canvas focus immediately — the game
            renders its own first frame and no click-to-start is required.  */
         loading.classList.add('hidden');
@@ -222,8 +223,37 @@
     };
 
     window.onerror = function(msg, src, l, c, err) {
-      if (typeof err === 'number' || /^\d+$/.test(msg)) return; /* Emscripten internals */
-      /* Show the crash message in the error bar AND log the full stack */
+      if (typeof err === 'number' || /^\d+$/.test(msg)) return;
+
+      // SharedArrayBuffer unavailable = COOP/COEP not active yet; register SW and reload.
+      if (msg && msg.indexOf('SharedArrayBuffer') !== -1) {
+        var n = parseInt(sessionStorage.getItem('xm-coi') || '0');
+        sessionStorage.setItem('xm-coi', String(n + 1));
+        var swActive = 'serviceWorker' in navigator && !!navigator.serviceWorker.controller;
+        if (!swActive && n < 5) {
+          loadSt.textContent = 'Enabling threading\u2026 reloading';
+          navigator.serviceWorker.register('./sw.js').then(function(reg) {
+            var done = false;
+            function go() { if (!done) { done=true; window.location.replace(window.location.href); } }
+            navigator.serviceWorker.addEventListener('controllerchange', go);
+            navigator.serviceWorker.ready.then(function() { setTimeout(go, 500); });
+            setTimeout(go, 5000);
+          }).catch(function(e) { console.warn('[xmoto] SW failed:', e); });
+        } else {
+          // SW active but still no COI = browser ignores SW-injected headers (Safari).
+          errorBar.textContent = 'Threading requires Chrome or Firefox 119+.';
+          errorBar.style.display = 'block';
+          if (typeof Module !== 'undefined') Module.setStatus = function() {};
+        }
+        return true;
+      }
+
+      // Non-critical worker error (SDL audio thread etc.).
+      if (msg && msg.indexOf('[object Event]') !== -1) {
+        console.warn('[xmoto] Worker thread error (non-critical)');
+        return true;
+      }
+
       errorBar.textContent = 'Crash: ' + msg;
       errorBar.style.display = 'block';
       console.error('[xmoto] Crash:', msg);

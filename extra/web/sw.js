@@ -29,22 +29,47 @@ self.addEventListener('activate', evt =>
 );
 
 self.addEventListener('fetch', evt => {
-  const p = new URL(evt.request.url).pathname;
-  const isJs   = p.endsWith('.js')   && !p.endsWith('sw.js');
+  const req  = evt.request;
+  const p    = new URL(req.url).pathname;
+  const isNav  = req.mode === 'navigate' || p.endsWith('.html');
+  const isJs   = p.endsWith('.js') && p.indexOf('sw.js') === -1;
   const isWasm = p.endsWith('.wasm');
-  const isData = p.endsWith('.data');
-  if (!isJs && !isWasm && !isData) return; /* let everything else through */
 
-  evt.respondWith(
-    caches.open(CACHE).then(cache =>
-      cache.match(evt.request.url).then(cached => {
-        if (cached) return cached;
-        /* Not in SW cache yet: fetch fresh and cache for next reload */
-        return fetch(evt.request).then(res => {
-          if (res.ok) cache.put(evt.request.url, res.clone());
-          return res;
+  // Inject COOP+COEP so crossOriginIsolated=true (Chrome/Firefox respect this;
+  // Safari ignores SW-injected headers and the shell handles that gracefully).
+  if (isNav) {
+    evt.respondWith(
+      fetch(req).then(function(res) {
+        return res.text().then(function(body) {
+          var h = new Headers(res.headers);
+          h.set('Cross-Origin-Opener-Policy', 'same-origin');
+          h.set('Cross-Origin-Embedder-Policy', 'credentialless');
+          h.delete('Content-Encoding');
+          h.delete('Content-Length');
+          return new Response(body, { status: res.status, statusText: res.statusText, headers: h });
         });
       })
-    )
+    );
+    return;
+  }
+
+  if (!isJs && !isWasm) return;
+
+  evt.respondWith(
+    caches.open(CACHE).then(function(cache) {
+      return cache.match(req.url).then(function(cached) {
+        var fromNet = !cached;
+        return (fromNet ? fetch(req) : Promise.resolve(cached)).then(function(res) {
+          if (fromNet && res.ok) cache.put(req.url, res.clone());
+          // CORP header lets Firefox pthread workers load xmoto.js under COEP.
+          if (res.ok) {
+            var h = new Headers(res.headers);
+            h.set('Cross-Origin-Resource-Policy', 'cross-origin');
+            return new Response(res.body, { status: res.status, statusText: res.statusText, headers: h });
+          }
+          return res;
+        });
+      });
+    })
   );
 });
