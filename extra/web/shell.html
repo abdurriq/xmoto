@@ -230,7 +230,10 @@
       if (msg && msg.indexOf('SharedArrayBuffer') !== -1) {
         var n = parseInt(sessionStorage.getItem('xm-coi') || '0');
         sessionStorage.setItem('xm-coi', String(n + 1));
-        if (n < 5 && 'serviceWorker' in navigator) {
+        /* If SW is already controlling but COI is still false, the browser
+           ignores SW-injected COOP/COEP (e.g. Safari) — stop retrying. */
+        var swAlreadyActive = 'serviceWorker' in navigator && !!navigator.serviceWorker.controller;
+        if (n < 5 && !swAlreadyActive && 'serviceWorker' in navigator) {
           loadSt.textContent = 'Enabling threading\u2026 reloading';
           navigator.serviceWorker.register('./sw.js').then(function(reg) {
             var done = false;
